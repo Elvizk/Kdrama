@@ -18,8 +18,6 @@ open class CineStream: Plugin() {
         // don't treat existing providers as new
         Settings.initSeenProviders()
 
-        registerMainAPI(CineStreamProvider())
-        registerMainAPI(CineSimklProvider())
         registerMainAPI(CineTmdbProvider())
 
         registerExtractorAPI(Kwik())

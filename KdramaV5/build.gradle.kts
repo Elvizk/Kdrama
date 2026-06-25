@@ -1,4 +1,7 @@
-version = 456
+import org.jetbrains.kotlin.konan.properties.Properties
+import java.io.FileInputStream
+
+version = 457
 
 cloudstream {
     language = "en"
@@ -12,4 +15,17 @@ cloudstream {
     )
 
     iconUrl = "https://github.com/SaurabhKaperwan/CSX/raw/refs/heads/master/CineStream/icon.png"
+}
+
+android {
+    buildFeatures.buildConfig = true
+    defaultConfig {
+        try {
+            val properties = Properties()
+            properties.load(FileInputStream(project.rootProject.file("local.properties")))
+            buildConfigField("String", "TMDB_KEY", "\"${properties.getProperty("TMDB_KEY", "")}\"")
+        } catch (_: Exception) {
+            buildConfigField("String", "TMDB_KEY", "\"\"")
+        }
+    }
 }
