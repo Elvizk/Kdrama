@@ -49,7 +49,7 @@ class CineSimklProvider: MainAPI() {
     private val simklDataAPI = "https://data.simkl.in"
     private final val mediaLimit = 10
     private val auth = com.lagradost.cloudstream3.BuildConfig.SIMKL_CLIENT_ID
-    private val auth2 = BuildConfig.SIMKL_API
+    private val auth2 = "afecf8086da68c4d6b6df985383ffbe33985e34b2d365c4e74f6c2e215172fe0"
     private val headers = mapOf("Content-Type" to "application/json")
     private val repo = SyncRepo(AccountManager.simklApi)
     private val kitsuAPI = "https://anime-kitsu.strem.fun"
