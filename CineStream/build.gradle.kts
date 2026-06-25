@@ -13,7 +13,6 @@ android {
 }
 
 cloudstream {
-    name = "Kdrama v5"
     language = "en"
     description = "Korean and Chinese Drama streaming plugin for CloudStream"
     authors = listOf("Elvizk")
