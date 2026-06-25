@@ -1,3 +1,3 @@
 rootProject.name = "KdramaV5"
 
-include("CineStream")
+include("KdramaV5")
