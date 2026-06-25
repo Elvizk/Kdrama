@@ -198,7 +198,7 @@ class CineSimklProvider: MainAPI() {
             val url = if(request.data.contains(".json")) {
                 simklDataAPI + request.data
             } else  {
-                apiUrl + request.data + "&client_id=$auth&page=$page"
+                apiUrl + request.data + "&client_id=$auth2&page=$page"
             }
              val data = app.get(url, headers = headers)
                 .parsedSafe<Array<SimklResponse>>()?.mapNotNull {
