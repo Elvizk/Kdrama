@@ -33,14 +33,12 @@ import com.megix.CineStreamExtractors.invokeAllSources
 import com.megix.CineStreamExtractors.invokeAllAnimeSources
 
 class CineSimklProvider: MainAPI() {
-    override var name = "CineSimkl"
+    override var name = "Kdrama Simkl"
     override var mainUrl = "https://simkl.com"
     override var supportedTypes = setOf(
         TvType.Movie,
         TvType.TvSeries,
-        TvType.Anime,
-        TvType.AsianDrama,
-        TvType.Torrent
+        TvType.AsianDrama
     )
     override var lang = "en"
     override val hasMainPage = true

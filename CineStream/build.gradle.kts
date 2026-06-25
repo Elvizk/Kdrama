@@ -14,15 +14,13 @@ android {
 
 cloudstream {
     language = "en"
-    description = "One stop solution for Movies, Series, Anime, AsianDrama and Torrents"
-    authors = listOf("megix")
+    description = "Korean and Chinese Drama streaming plugin for CloudStream"
+    authors = listOf("Elvizk")
     status = 1
     tvTypes = listOf(
         "TvSeries",
         "Movie",
-        "AsianDrama",
-        "Anime",
-        "Torrent"
+        "AsianDrama"
     )
 
     iconUrl = "https://github.com/SaurabhKaperwan/CSX/raw/refs/heads/master/CineStream/icon.png"

@@ -30,7 +30,7 @@ import com.megix.CineStreamExtractors.invokeAnimes
 
 open class CineStreamProvider : MainAPI() {
     override var mainUrl = "https://cinemeta-catalogs.strem.io"
-    override var name = "CineStream"
+    override var name = "Kdrama"
     override val hasMainPage = true
     override var lang = "en"
     // override val providerType = ProviderType.MetaProvider
@@ -46,8 +46,6 @@ open class CineStreamProvider : MainAPI() {
         TvType.Movie,
         TvType.TvSeries,
         TvType.AsianDrama,
-        TvType.Anime,
-        TvType.Torrent,
     )
 
     override val mainPage = mainPageOf(
