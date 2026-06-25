@@ -33,11 +33,9 @@ class CineTmdbProvider: MainAPI() {
 
     override val mainPage = mainPageOf(
         // === Korean Drama ===
-        "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=popularity.desc" to "Korean Drama - Popular",
         "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=primary_release_date.desc" to "Korean Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Korean Drama - Top Rated",
         // === Chinese Drama ===
-        "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=popularity.desc" to "Chinese Drama - Popular",
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=primary_release_date.desc" to "Chinese Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Chinese Drama - Top Rated",
         // === Movies ===
