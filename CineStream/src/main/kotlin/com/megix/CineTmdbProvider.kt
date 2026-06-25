@@ -33,25 +33,19 @@ class CineTmdbProvider: MainAPI() {
     }
 
     override val mainPage = mainPageOf(
-        "trending/all/day?api_key=$apiKey&region=US" to "Trending",
-        "trending/movie/week?api_key=$apiKey&region=US" to "Popular Movies",
-        "trending/tv/week?api_key=$apiKey&region=US" to "Popular TV Shows",
-        "discover/tv?api_key=$apiKey&with_keywords=210024|222243&sort_by=popularity.desc&air_date.lte=${getDate().today}&air_date.gte=${getDate().today}" to "Airing Today Anime",
-        "discover/tv?api_key=$apiKey&with_keywords=210024|222243&sort_by=popularity.desc&air_date.lte=${getDate().nextWeek}&air_date.gte=${getDate().today}" to "On The Air Anime",
-        "discover/tv?api_key=$apiKey&with_original_language=ko" to "Korean Shows",
-        "discover/tv?api_key=$apiKey&with_networks=213" to "Netflix",
-        "discover/tv?api_key=$apiKey&with_networks=1024" to "Amazon",
-        "discover/tv?api_key=$apiKey&with_networks=2739" to "Disney+",
-        "discover/tv?api_key=$apiKey&with_watch_providers=2336&watch_region=IN" to "JioHotstar",
-        "discover/tv?api_key=$apiKey&with_networks=453" to "Hulu",
-        "discover/tv?api_key=$apiKey&with_networks=2552" to "Apple TV+",
-        "discover/tv?api_key=$apiKey&with_networks=49" to "HBO",
-        "discover/tv?api_key=$apiKey&with_networks=4330" to "Paramount+",
-        "discover/tv?api_key=$apiKey&with_networks=3353" to "Peacock",
-        "discover/movie?api_key=$apiKey&language=en-US&page=1&sort_by=popularity.desc&with_origin_country=IN&release_date.gte=${getDate().lastWeekStart}&release_date.lte=${getDate().today}" to "Trending Indian Movies",
-        "discover/movie?api_key=$apiKey&with_keywords=210024|222243" to "Anime Movies",
-        // "movie/top_rated?api_key=$apiKey&region=US" to "Top Rated Movies",
-        "tv/top_rated?api_key=$apiKey&region=US" to "Top Rated TV Shows",
+        // === Korean Drama ===
+        "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=popularity.desc" to "Korean Drama - Popular",
+        "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=primary_release_date.desc" to "Korean Drama - Recent",
+        "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Korean Drama - Top Rated",
+        "trending/tv/week?api_key=$apiKey&with_original_language=ko" to "Korean Shows - Trending",
+        // === Chinese Drama ===
+        "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=popularity.desc" to "Chinese Drama - Popular",
+        "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=primary_release_date.desc" to "Chinese Drama - Recent",
+        "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Chinese Drama - Top Rated",
+        "trending/tv/week?api_key=$apiKey&with_original_language=zh" to "Chinese Shows - Trending",
+        // === Movies ===
+        "discover/movie?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=popularity.desc" to "Korean Movies",
+        "discover/movie?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=popularity.desc" to "Chinese Movies",
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {

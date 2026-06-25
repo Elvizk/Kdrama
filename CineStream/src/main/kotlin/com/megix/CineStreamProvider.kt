@@ -51,28 +51,8 @@ open class CineStreamProvider : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
-        "$mainUrl/top/catalog/movie/top/skip=###" to "Top Movies",
-        "$mainUrl/top/catalog/series/top/skip=###" to "Top Series",
-        "$aiometa_url/catalog/anime/mal.airing/skip=###" to "Top Airing Anime",
-        "$kitsu_url/catalog/anime/kitsu-anime-trending/skip=###" to "Top Anime",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Action" to "Top Action Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Action" to "Top Action Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Comedy" to "Top Comedy Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Comedy" to "Top Comedy Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Romance" to "Top Romance Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Romance" to "Top Romance Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Horror" to "Top Horror Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Horror" to "Top Horror Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Thriller" to "Top Thriller Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Thriller" to "Top Thriller Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Sci-Fi" to "Top Sci-Fi Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Sci-Fi" to "Top Sci-Fi Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Fantasy" to "Top Fantasy Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Fantasy" to "Top Fantasy Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Mystery" to "Top Mystery Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Mystery" to "Top Mystery Series",
-        "$mainUrl/top/catalog/movie/top/skip=###&genre=Crime" to "Top Crime Movies",
-        "$mainUrl/top/catalog/series/top/skip=###&genre=Crime" to "Top Crime Series",
+        "$mainUrl/top/catalog/series/top/skip=###&genre=Drama" to "Drama - Popular",
+        "$mainUrl/top/catalog/movie/top/skip=###&genre=Drama" to "Drama Movies - Popular",
     )
 
     private fun getPosterUrl(
