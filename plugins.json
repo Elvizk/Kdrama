@@ -2,14 +2,14 @@
     {
         "url": "https://raw.githubusercontent.com/Elvizk/Kdrama/builds/KdramaV5.cs3",
         "status": 1,
-        "version": 458,
+        "version": 459,
         "name": "KdramaV5",
         "internalName": "KdramaV5",
         "authors": [
             "Elvizk"
         ],
         "description": "Korean Drama streaming plugin for CloudStream",
-        "fileSize": 661074,
+        "fileSize": 660822,
         "repositoryUrl": "https://github.com/Elvizk/Kdrama",
         "language": "en",
         "tvTypes": [
@@ -19,6 +19,6 @@
         ],
         "iconUrl": "https://github.com/SaurabhKaperwan/CSX/raw/refs/heads/master/CineStream/icon.png",
         "apiVersion": 1,
-        "fileHash": "sha256-fa6e5412ec70f6b669afe86039816f15d987523fab803856e7a4ea8d5b8d6b2d"
+        "fileHash": "sha256-986517b4676031b1c17011c8930fe52b86b30aa48b19ce70c2941e325016bf11"
     }
 ]
