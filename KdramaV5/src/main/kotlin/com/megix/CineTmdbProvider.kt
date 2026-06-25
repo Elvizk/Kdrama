@@ -6,6 +6,7 @@ import com.lagradost.api.Log
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.megix.CineStreamExtractors.invokeAllSources
@@ -48,10 +49,10 @@ class CineTmdbProvider: MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val type = if (request.data.contains("/movie")) "movie" else "tv"
-        val home = app.get("$apiUrl/${request.data}&without_keywords=190370|13059|226161|195669&page=$page", timeout = 10000)
-            .parsed<Results>().results?.mapNotNull { media ->
-                media.toSearchResponse(type)
-            } ?: throw ErrorLoadingException("Invalid Json reponse")
+        val json = app.get("$apiUrl/${request.data}&without_keywords=190370|13059|226161|195669&page=$page", timeout = 10000).text
+        val home = tryParseJson<Results>(json)?.results?.mapNotNull { media ->
+            media.toSearchResponse(type)
+        } ?: throw ErrorLoadingException("Invalid Json reponse")
         return newHomePageResponse(request.name, home)
     }
 
