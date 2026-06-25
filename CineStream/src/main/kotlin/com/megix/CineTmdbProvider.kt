@@ -12,14 +12,12 @@ import com.megix.CineStreamExtractors.invokeAllSources
 import com.megix.CineStreamExtractors.invokeAnimes
 
 class CineTmdbProvider: MainAPI() {
-    override var name = "CineTmdb"
+    override var name = "Kdrama TMDB"
     override var mainUrl = "https://www.themoviedb.org"
     override var supportedTypes = setOf(
         TvType.Movie,
         TvType.TvSeries,
-        TvType.Anime,
-        TvType.AsianDrama,
-        TvType.Torrent
+        TvType.AsianDrama
     )
     override var lang = "en"
     override val hasMainPage = true
