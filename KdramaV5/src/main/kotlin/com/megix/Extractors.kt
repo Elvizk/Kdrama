@@ -16,6 +16,7 @@ import com.lagradost.cloudstream3.extractors.ByseSX
 
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 // Network (OkHttp & Java Net)
 import java.net.URI
@@ -970,8 +971,31 @@ open class Cloudnestra : ExtractorApi() {
 
         val resultArray = jsonObject.getJSONArray("result")
 
+        // cache tokens per host so we don't call generate.php repeatedly for same domain
+        val tokenCache = mutableMapOf<String, String>()
+
+        suspend fun fetchToken(host: String): String {
+            return tokenCache.getOrPut(host) {
+                app.get("https://$host/generate.php", headers = headers).text.trim()
+            }
+        }
+
         for (i in 0 until resultArray.length()) {
-            val streamUrl = resultArray.getString(i)
+            var streamUrl = resultArray.getString(i)
+
+            when {
+                streamUrl.contains("__TOKENPG__") -> {
+                    val token = fetchToken("app2.putgate.com")
+                    streamUrl = streamUrl.replace("__TOKENPG__", token)
+                }
+                streamUrl.contains("__TOKEN__") -> {
+                    val host = streamUrl.toHttpUrlOrNull()?.host
+                        ?: Regex("""https?://([^/]+)""").find(streamUrl)?.groupValues?.get(1)
+                        ?: continue
+                    val token = fetchToken(host)
+                    streamUrl = streamUrl.replace("__TOKEN__", token)
+                }
+            }
 
             M3u8Helper.generateM3u8(
                 name,

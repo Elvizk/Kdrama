@@ -4322,7 +4322,7 @@ object CineStreamExtractors {
             "$animesaltAPI/episode/$slug-${season}x${episode}/"
         }
 
-        val html = app.get(url, headers = headers).text
+        val html = cfGet(url, headers = headers).text
 
         val iframeMatch = Regex("""src="(https://as-cdn\d+\.top/video/([a-f0-9]+))\"""")
             .find(html) ?: return
