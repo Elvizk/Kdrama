@@ -54,7 +54,21 @@ object CineStreamExtractors {
             } ?: stremioMap[key]
         }
 
-        runLimitedAsync(concurrency = Settings.getConcurrency(), *executionList.toTypedArray())
+        val priorityKeys = setOf("p_kisskh", "p_peachify")
+
+        val prioritized = executionList.filterIndexed { i, _ ->
+            Settings.activeProviderOrder[i] in priorityKeys
+        }
+        val rest = executionList.filterIndexed { i, _ ->
+            Settings.activeProviderOrder[i] !in priorityKeys
+        }
+
+        if (prioritized.isNotEmpty()) {
+            runLimitedAsync(concurrency = Settings.getConcurrency(), *prioritized.toTypedArray())
+        }
+        if (rest.isNotEmpty()) {
+            runLimitedAsync(concurrency = Settings.getConcurrency(), *rest.toTypedArray())
+        }
     }
 
     suspend fun invokeAllAnimeSources(
@@ -70,7 +84,21 @@ object CineStreamExtractors {
             } ?: stremioMap[key]
         }
 
-        runLimitedAsync(concurrency = Settings.getConcurrency(), *executionList.toTypedArray())
+        val priorityKeys = setOf("p_kisskh", "p_peachify")
+
+        val prioritized = executionList.filterIndexed { i, _ ->
+            Settings.activeProviderOrder[i] in priorityKeys
+        }
+        val rest = executionList.filterIndexed { i, _ ->
+            Settings.activeProviderOrder[i] !in priorityKeys
+        }
+
+        if (prioritized.isNotEmpty()) {
+            runLimitedAsync(concurrency = Settings.getConcurrency(), *prioritized.toTypedArray())
+        }
+        if (rest.isNotEmpty()) {
+            runLimitedAsync(concurrency = Settings.getConcurrency(), *rest.toTypedArray())
+        }
     }
 
     suspend fun invokeAnimes(
