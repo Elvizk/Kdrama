@@ -58,7 +58,7 @@ class CineTmdbProvider: MainAPI() {
                 "trakt-api-key" to traktClientId
             )
             val json = app.get(
-                "https://api.trakt.tv/${request.data}?page=$page&limit=50",
+                "https://api.trakt.tv/${request.data.removePrefix("trakt/")}?page=$page&limit=50",
                 headers = headers,
                 timeout = 15000
             ).text
