@@ -150,11 +150,7 @@ object ProviderRegistry {
         ),
         ProviderDef(
             key = "p_vidsrc", displayName = "VidSrc",
-            executeStandard = { res, _, cb -> invokeVidSrc(res.tmdbId, res.season, res.episode, cb) }
-        ),
-        ProviderDef(
-            key = "p_twoembed", displayName = "2Embed",
-            executeStandard = { res, _, cb -> invokeTwoEmbed(res.tmdbId, res.season, res.episode, cb) }
+            executeStandard = { res, subCb, cb -> invokeVidSrc(res.tmdbId, res.season, res.episode, subCb, cb) }
         ),
         ProviderDef(
             key = "p_vidfastpro", displayName = "VidFastPro",
