@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.konan.properties.Properties
 import java.io.FileInputStream
 
-version = 460
+version = 461
 
 cloudstream {
     language = "en"
@@ -24,8 +24,10 @@ android {
             val properties = Properties()
             properties.load(FileInputStream(project.rootProject.file("local.properties")))
             buildConfigField("String", "TMDB_KEY", "\"${properties.getProperty("TMDB_KEY", "")}\"")
+            buildConfigField("String", "TRAKT_CLIENT_ID", "\"${properties.getProperty("TRAKT_CLIENT_ID", "")}\"")
         } catch (_: Exception) {
             buildConfigField("String", "TMDB_KEY", "\"\"")
+            buildConfigField("String", "TRAKT_CLIENT_ID", "\"\"")
         }
     }
 }

@@ -7,6 +7,9 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.megix.CineStreamExtractors.invokeAllSources
@@ -29,9 +32,12 @@ class CineTmdbProvider: MainAPI() {
 
     companion object {
         private val apiKey = BuildConfig.TMDB_KEY
+        private val traktClientId = BuildConfig.TRAKT_CLIENT_ID
     }
 
     override val mainPage = mainPageOf(
+        // === Latest from Trakt (snoak curated list) ===
+        "trakt/users/snoak/lists/latest-kdrama-shows/items/shows" to "Latest Kdrama",
         // === Korean Drama ===
         "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=primary_release_date.desc" to "Korean Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Korean Drama - Top Rated",
@@ -44,6 +50,52 @@ class CineTmdbProvider: MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // === Trakt branch ===
+        if (request.data.contains("trakt")) {
+            val headers = mapOf(
+                "Content-Type" to "application/json",
+                "trakt-api-version" to "2",
+                "trakt-api-key" to traktClientId
+            )
+            val json = app.get(
+                "https://api.trakt.tv/${request.data}?page=$page&limit=50",
+                headers = headers,
+                timeout = 15000
+            ).text
+
+            val items = tryParseJson<ArrayList<TraktItem>>(json)
+                ?: throw ErrorLoadingException("Invalid Trakt response")
+
+            val home = coroutineScope {
+                items.mapNotNull { item ->
+                    async {
+                        val media = item.show ?: item.movie ?: return@async null
+                        val tmdbId = media.ids?.tmdb ?: return@async null
+                        val title = media.title ?: return@async null
+                        val traktType = item.type ?: return@async null
+                        val tmdbEndpoint = if (traktType == "movie") "movie" else "tv"
+                        val posterUrl = try {
+                            val detail = app.get(
+                                "$apiUrl/$tmdbEndpoint/$tmdbId?api_key=$apiKey"
+                            ).parsedSafe<TraktTmdbLookup>()
+                            if (detail?.posterPath != null) "https://image.tmdb.org/t/p/w500${detail.posterPath}" else null
+                        } catch (_: Exception) { null }
+
+                        newMovieSearchResponse(
+                            title,
+                            Data(id = tmdbId, type = tmdbEndpoint).toJson(),
+                            if (traktType == "movie") TvType.Movie else TvType.TvSeries
+                        ) {
+                            this.posterUrl = posterUrl
+                        }
+                    }
+                }.awaitAll().filterNotNull()
+            }
+
+            return newHomePageResponse(request.name, home)
+        }
+
+        // === TMDB branch ===
         val type = if (request.data.contains("/movie")) "movie" else "tv"
         val json = app.get("$apiUrl/${request.data}&without_keywords=190370|13059|226161|195669&page=$page", timeout = 10000).text
         val home = tryParseJson<Results>(json)?.results?.mapNotNull { media ->
@@ -354,6 +406,25 @@ class CineTmdbProvider: MainAPI() {
         @param:JsonProperty("media_type") val mediaType: String? = null,
         @param:JsonProperty("poster_path") val posterPath: String? = null,
         @param:JsonProperty("vote_average") val voteAverage: Double? = null,
+    )
+
+    data class TraktItem(
+        @param:JsonProperty("type") val type: String? = null,
+        @param:JsonProperty("show") val show: TraktShow? = null,
+        @param:JsonProperty("movie") val movie: TraktShow? = null,
+    )
+
+    data class TraktShow(
+        @param:JsonProperty("title") val title: String? = null,
+        @param:JsonProperty("ids") val ids: TraktIds? = null,
+    )
+
+    data class TraktIds(
+        @param:JsonProperty("tmdb") val tmdb: Int? = null,
+    )
+
+    data class TraktTmdbLookup(
+        @param:JsonProperty("poster_path") val posterPath: String? = null,
     )
 
     data class Genres(
