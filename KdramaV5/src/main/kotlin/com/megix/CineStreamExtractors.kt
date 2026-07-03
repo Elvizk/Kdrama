@@ -1148,49 +1148,36 @@ object CineStreamExtractors {
     ) {
         if (tmdbId == null) return
 
-        val embedUrl = if (season != null && episode != null) {
-            "$vidsrcAPI/embed/tv/$tmdbId/$season/$episode"
-        } else {
-            "$vidsrcAPI/embed/movie/$tmdbId"
-        }
+        val referer = "https://www.vidsrc.wtf"
+        val headers = mapOf(
+            "Origin" to referer,
+            "Referer" to "$referer/",
+            "User-Agent" to USER_AGENT,
+        )
 
-        val html = try {
-            app.get(embedUrl, headers = mapOf("User-Agent" to USER_AGENT)).text
-        } catch (e: Exception) { return }
+        try {
+            val mainServer = if(season == null) "$vidSrcApi/main/movie/$tmdbId" else "$vidSrcApi/main/tv/$tmdbId/$season/$episode"
+            val mainResponse = app.get(mainServer, timeout = 30, headers = headers).text
+            val jsonObject = JSONObject(mainResponse)
+            val streamUrl = jsonObject.getJSONObject("stream").getString("url")
+            M3u8Helper.generateM3u8(
+                "VidSrc [Main]",
+                streamUrl,
+                referer,
+            ).forEach(callback)
+        } catch (e: Exception) {}
 
-        val cfgJsonStr = Regex("""var CFG = ({.*?});""").find(html)?.groupValues?.get(1) ?: return
-        val cfgJson = try { JSONObject(cfgJsonStr) } catch (e: Exception) { return }
-
-        val cfgType = cfgJson.optString("type", "movie")
-        val cfgTmdbId = cfgJson.optInt("tmdbId", tmdbId)
-        val cfgSeason = cfgJson.optInt("season", 1)
-        val cfgEpisode = cfgJson.optInt("episode", 1)
-
-        val servers = cfgJson.optJSONArray("servers") ?: return
-
-        for (i in 0 until servers.length()) {
-            val server = servers.getJSONObject(i)
-            val name = server.optString("name", "Server $i")
-            val template = if (cfgType == "movie") {
-                server.optString("movie_url", "")
-            } else {
-                server.optString("tv_url", server.optString("movie_url", ""))
+        try {
+            val embededServer = if(season == null) "$vidSrcApi/premium_embeds/movie/$tmdbId" else "$vidSrcApi/premium_embeds/tv/$tmdbId/$season/$episode"
+            val embededResponse = app.get(embededServer, timeout = 30, headers = headers).text
+            val embededJsonObject = JSONObject(embededResponse)
+            val linksArray = embededJsonObject.getJSONArray("links")
+            for (i in 0 until linksArray.length()) {
+                val streamObj = linksArray.getJSONObject(i)
+                val url = streamObj.getString("url")
+                loadSourceNameExtractor("VidSrc", url, "", subtitleCallback, callback)
             }
-            if (template.isEmpty()) continue
-
-            val finalUrl = template
-                .replace("{tmdb_id}", cfgTmdbId.toString())
-                .replace("{season}", cfgSeason.toString())
-                .replace("{episode}", cfgEpisode.toString())
-
-            loadSourceNameExtractor(
-                "VidSrc [$name]",
-                finalUrl,
-                "$vidsrcAPI/",
-                subtitleCallback,
-                callback
-            )
-        }
+        } catch (e: Exception) {}
     }
 
     suspend fun invokeToonstream(
