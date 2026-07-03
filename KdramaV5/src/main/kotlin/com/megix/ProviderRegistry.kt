@@ -149,6 +149,14 @@ object ProviderRegistry {
             executeStandard = { res, _, cb -> invokePeachify(res.tmdbId, res.season, res.episode, cb) }
         ),
         ProviderDef(
+            key = "p_vidsrc", displayName = "VidSrc",
+            executeStandard = { res, _, cb -> invokeVidSrc(res.tmdbId, res.season, res.episode, cb) }
+        ),
+        ProviderDef(
+            key = "p_twoembed", displayName = "2Embed",
+            executeStandard = { res, _, cb -> invokeTwoEmbed(res.tmdbId, res.season, res.episode, cb) }
+        ),
+        ProviderDef(
             key = "p_vidfastpro", displayName = "VidFastPro",
             executeStandard = { res, subCb, cb -> invokeVidFastPro(res.tmdbId, res.season, res.episode, subCb, cb) }
         ),

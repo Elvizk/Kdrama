@@ -1139,6 +1139,58 @@ object CineStreamExtractors {
         ).forEach(callback)
     }
 
+    suspend fun invokeVidSrc(
+        tmdbId: Int? = null,
+        season: Int? = null,
+        episode: Int? = null,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        if (tmdbId == null) return
+
+        val url = if (season != null && episode != null) {
+            "$vidsrcAPI/embed/tv/$tmdbId/$season/$episode"
+        } else {
+            "$vidsrcAPI/embed/movie/$tmdbId"
+        }
+
+        callback.invoke(
+            newExtractorLink(
+                "VidSrc",
+                "VidSrc",
+                url,
+                ExtractorLinkType.M3U8
+            ) {
+                this.quality = Qualities.P1080.value
+            }
+        )
+    }
+
+    suspend fun invokeTwoEmbed(
+        tmdbId: Int? = null,
+        season: Int? = null,
+        episode: Int? = null,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        if (tmdbId == null) return
+
+        val url = if (season != null && episode != null) {
+            "$twoEmbedAPI/embed/tv/$tmdbId/$season/$episode"
+        } else {
+            "$twoEmbedAPI/embed/movie/$tmdbId"
+        }
+
+        callback.invoke(
+            newExtractorLink(
+                "2Embed",
+                "2Embed",
+                url,
+                ExtractorLinkType.M3U8
+            ) {
+                this.quality = Qualities.P1080.value
+            }
+        )
+    }
+
     suspend fun invokeToonstream(
         title: String? = null,
         season: Int? = null,
