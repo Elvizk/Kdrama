@@ -48,23 +48,14 @@ object CineStreamExtractors {
     ) {
         val stremioMap = getDynamicStremioMap(res.imdbId, res.season, res.episode, subtitleCallback, callback)
 
-        val keyedExecutionList = Settings.activeProviderOrder.mapNotNull { key ->
-            val action = ProviderRegistry.builtInProviders.find { it.key == key }?.executeStandard?.let { a ->
-                suspend { this.a(res, subtitleCallback, callback) }
+        val executionList = Settings.activeProviderOrder.mapNotNull { key ->
+            ProviderRegistry.builtInProviders.find { it.key == key }?.executeStandard?.let { action ->
+                suspend { this.action(res, subtitleCallback, callback) }
             } ?: stremioMap[key]
-            action?.let { key to it }
         }
 
-        val priorityKeys = setOf("p_kisskh", "p_peachify")
-
-        val prioritized = keyedExecutionList.filter { it.first in priorityKeys }.map { it.second }
-        val rest = keyedExecutionList.filter { it.first !in priorityKeys }.map { it.second }
-
-        if (prioritized.isNotEmpty()) {
-            runLimitedAsync(concurrency = Settings.getConcurrency(), *prioritized.toTypedArray())
-        }
-        if (rest.isNotEmpty()) {
-            runLimitedAsync(concurrency = Settings.getConcurrency(), *rest.toTypedArray())
+        if (executionList.isNotEmpty()) {
+            runLimitedAsync(concurrency = Settings.getConcurrency(), *executionList.toTypedArray())
         }
     }
 
@@ -75,23 +66,14 @@ object CineStreamExtractors {
     ) {
         val stremioMap = getDynamicStremioMap(res.imdbId, res.imdbSeason, res.imdbEpisode, subtitleCallback, callback)
 
-        val keyedExecutionList = Settings.activeProviderOrder.mapNotNull { key ->
-            val action = ProviderRegistry.builtInProviders.find { it.key == key }?.executeAnime?.let { a ->
-                suspend { this.a(res, subtitleCallback, callback) }
+        val executionList = Settings.activeProviderOrder.mapNotNull { key ->
+            ProviderRegistry.builtInProviders.find { it.key == key }?.executeAnime?.let { action ->
+                suspend { this.action(res, subtitleCallback, callback) }
             } ?: stremioMap[key]
-            action?.let { key to it }
         }
 
-        val priorityKeys = setOf("p_kisskh", "p_peachify")
-
-        val prioritized = keyedExecutionList.filter { it.first in priorityKeys }.map { it.second }
-        val rest = keyedExecutionList.filter { it.first !in priorityKeys }.map { it.second }
-
-        if (prioritized.isNotEmpty()) {
-            runLimitedAsync(concurrency = Settings.getConcurrency(), *prioritized.toTypedArray())
-        }
-        if (rest.isNotEmpty()) {
-            runLimitedAsync(concurrency = Settings.getConcurrency(), *rest.toTypedArray())
+        if (executionList.isNotEmpty()) {
+            runLimitedAsync(concurrency = Settings.getConcurrency(), *executionList.toTypedArray())
         }
     }
 
