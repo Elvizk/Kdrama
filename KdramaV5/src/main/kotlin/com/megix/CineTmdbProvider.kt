@@ -74,10 +74,17 @@ class CineTmdbProvider: MainAPI() {
                         val title = media.title ?: return@async null
                         val traktType = item.type ?: return@async null
                         val tmdbEndpoint = if (traktType == "movie") "movie" else "tv"
+
+                        // Filter adult content only for Chinese Movies
+                        val isChineseMovies = request.data.contains("chinese-movies")
+
                         val posterUrl = try {
                             val detail = app.get(
                                 "$apiUrl/$tmdbEndpoint/$tmdbId?api_key=$apiKey"
                             ).parsedSafe<TraktTmdbLookup>()
+
+                            if (isChineseMovies && detail?.adult == true) return@async null
+
                             if (detail?.posterPath != null) "https://image.tmdb.org/t/p/w500${detail.posterPath}" else null
                         } catch (_: Exception) { null }
 
@@ -427,6 +434,7 @@ class CineTmdbProvider: MainAPI() {
 
     data class TraktTmdbLookup(
         @param:JsonProperty("poster_path") val posterPath: String? = null,
+        @param:JsonProperty("adult") val adult: Boolean? = null,
     )
 
     data class Genres(
