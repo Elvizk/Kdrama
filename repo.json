@@ -1,0 +1,8 @@
+{
+    "name": "KDrama",
+    "description": "Korean and Chinese Drama plugin for CloudStream",
+    "manifestVersion": 1,
+    "pluginLists": [
+        "https://raw.githubusercontent.com/Elvizk/Kdrama/builds/plugins.json"
+    ]
+}
