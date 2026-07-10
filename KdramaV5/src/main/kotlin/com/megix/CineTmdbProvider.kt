@@ -46,7 +46,7 @@ class CineTmdbProvider: MainAPI() {
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Chinese Drama - Top Rated",
         // === Movies ===
         "trakt/users/an-kah/lists/popular-korean-movies/items/movies" to "Korean Movies",
-        "discover/movie?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=popularity.desc" to "Chinese Movies",
+        "trakt/users/thedeterminist8/lists/chinese-movies/items/movies" to "Chinese Movies",
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
