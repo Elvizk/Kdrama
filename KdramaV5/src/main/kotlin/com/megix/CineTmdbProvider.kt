@@ -45,7 +45,7 @@ class CineTmdbProvider: MainAPI() {
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=primary_release_date.desc" to "Chinese Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Chinese Drama - Top Rated",
         // === Movies ===
-        "discover/movie?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=popularity.desc" to "Korean Movies",
+        "trakt/users/an-kah/lists/popular-korean-movies/items/movies" to "Korean Movies",
         "discover/movie?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=popularity.desc" to "Chinese Movies",
     )
 
