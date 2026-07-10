@@ -154,10 +154,6 @@ object ProviderRegistry {
             executeStandard = { res, _, cb -> invokePeachify(res.tmdbId, res.season, res.episode, cb) }
         ),
         ProviderDef(
-            key = "p_vidsrc", displayName = "VidSrc",
-            executeStandard = { res, subCb, cb -> invokeVidSrc(res.tmdbId, res.season, res.episode, subCb, cb) }
-        ),
-        ProviderDef(
             key = "p_vidfastpro", displayName = "VidFastPro",
             executeStandard = { res, subCb, cb -> invokeVidFastPro(res.tmdbId, res.season, res.episode, subCb, cb) }
         ),

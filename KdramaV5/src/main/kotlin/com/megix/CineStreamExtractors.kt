@@ -1215,47 +1215,6 @@ object CineStreamExtractors {
         ).forEach(callback)
     }
 
-    suspend fun invokeVidSrc(
-        tmdbId: Int? = null,
-        season: Int? = null,
-        episode: Int? = null,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ) {
-        if (tmdbId == null) return
-
-        val referer = "https://www.vidsrc.wtf"
-        val headers = mapOf(
-            "Origin" to referer,
-            "Referer" to "$referer/",
-            "User-Agent" to USER_AGENT,
-        )
-
-        try {
-            val mainServer = if(season == null) "$vidSrcApi/main/movie/$tmdbId" else "$vidSrcApi/main/tv/$tmdbId/$season/$episode"
-            val mainResponse = app.get(mainServer, timeout = 30, headers = headers).text
-            val jsonObject = JSONObject(mainResponse)
-            val streamUrl = jsonObject.getJSONObject("stream").getString("url")
-            M3u8Helper.generateM3u8(
-                "VidSrc [Main]",
-                streamUrl,
-                referer,
-            ).forEach(callback)
-        } catch (e: Exception) {}
-
-        try {
-            val embededServer = if(season == null) "$vidSrcApi/premium_embeds/movie/$tmdbId" else "$vidSrcApi/premium_embeds/tv/$tmdbId/$season/$episode"
-            val embededResponse = app.get(embededServer, timeout = 30, headers = headers).text
-            val embededJsonObject = JSONObject(embededResponse)
-            val linksArray = embededJsonObject.getJSONArray("links")
-            for (i in 0 until linksArray.length()) {
-                val streamObj = linksArray.getJSONObject(i)
-                val url = streamObj.getString("url")
-                loadSourceNameExtractor("VidSrc", url, "", subtitleCallback, callback)
-            }
-        } catch (e: Exception) {}
-    }
-
     suspend fun invokeToonstream(
         title: String? = null,
         season: Int? = null,
