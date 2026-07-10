@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.konan.properties.Properties
 import java.io.FileInputStream
 
-version = 471
+version = 472
 
 cloudstream {
     language = "en"
@@ -25,9 +25,11 @@ android {
             properties.load(FileInputStream(project.rootProject.file("local.properties")))
             buildConfigField("String", "TMDB_KEY", "\"${properties.getProperty("TMDB_KEY", "")}\"")
             buildConfigField("String", "TRAKT_CLIENT_ID", "\"${properties.getProperty("TRAKT_CLIENT_ID", "")}\"")
+            buildConfigField("String", "CC_COOKIE", "\"${properties.getProperty("CC_COOKIE", "")}\"")
         } catch (_: Exception) {
             buildConfigField("String", "TMDB_KEY", "\"\"")
             buildConfigField("String", "TRAKT_CLIENT_ID", "\"\"")
+            buildConfigField("String", "CC_COOKIE", "\"\"")
         }
     }
 }

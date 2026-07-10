@@ -800,6 +800,22 @@ data class AnimeSaltData(
 
 //Lordflix
 
+data class LordflixServer(
+    val name: String
+)
+
+data class LordflixServersResponse(
+    val servers: List<LordflixServer>?
+)
+
+data class LordflixChallenge(
+    val algorithm: String = "",
+    val challenge: String = "",
+    val salt: String = "",
+    val maxnumber: Int = 0,
+    val signature: String = ""
+)
+
 data class LordflixCaption(
     val url: String,
     val language: String?
