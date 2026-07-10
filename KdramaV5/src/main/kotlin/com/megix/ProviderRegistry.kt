@@ -128,10 +128,6 @@ object ProviderRegistry {
             executeStandard = { res, subCb, cb -> if (res.season == null) invokeFshare(res.title, res.imdbId, subCb, cb) }
         ),
         ProviderDef(
-            key = "p_videasy", displayName = "Videasy",
-            executeStandard = { res, subCb, cb -> invokeVideasy(res.title, res.tmdbId, res.imdbId, res.year, res.season, res.episode, subCb, cb) }
-        ),
-        ProviderDef(
             key = "p_vaplayer", displayName = "VaPlayer",
             executeStandard = { res, subCb, cb -> invokeVaPlayer(res.imdbId, res.season, res.episode, subCb, cb) },
             executeAnime = { res, subCb, cb -> invokeVaPlayer(res.imdbId, res.imdbSeason, res.imdbEpisode, subCb, cb) }

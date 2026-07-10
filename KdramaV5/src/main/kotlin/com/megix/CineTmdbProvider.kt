@@ -161,9 +161,11 @@ class CineTmdbProvider: MainAPI() {
             "$apiUrl/tv/${data.id}?api_key=$apiKey&append_to_response=$append"
         }
 
+        Log.d("CineLoad", "Fetching TMDB: $resUrl")
         val res = app.get(resUrl).parsedSafe<MediaDetail>()
             ?: throw ErrorLoadingException("Invalid Json Response")
-        val title = res.title ?: res.name ?: return null
+        val title = res.title ?: res.name
+            ?: throw ErrorLoadingException("TMDB response missing title/name: id=${res.id} adult=${res.adult}")
         val poster = getOriImageUrl(res.posterPath)
         val bgPoster = getOriImageUrl(res.backdropPath)
         val ageRating = res.usAgeRating
@@ -501,7 +503,7 @@ class CineTmdbProvider: MainAPI() {
 
     data class MediaDetail(
         @param:JsonProperty("id") val id: Int? = null,
-        @param:JsonProperty("adult") val adult: Boolean = false,
+        @param:JsonProperty("adult") val adult: Boolean? = null,
         @param:JsonProperty("imdb_id") val imdbId: String? = null,
         @param:JsonProperty("title") val title: String? = null,
         @param:JsonProperty("name") val name: String? = null,
