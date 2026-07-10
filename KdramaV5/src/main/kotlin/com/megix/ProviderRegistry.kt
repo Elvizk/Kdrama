@@ -124,8 +124,17 @@ object ProviderRegistry {
             executeStandard = { res, subCb, cb -> invokeVideasy(res.title, res.tmdbId, res.imdbId, res.year, res.season, res.episode, subCb, cb) }
         ),
         ProviderDef(
-            key = "p_vicsrcwtf", displayName = "VicSrcWtf",
-            executeStandard = { res, subCb, cb -> invokeVicSrcWtf(res.tmdbId, res.season, res.episode, cb, subCb) }
+            key = "p_fshare", displayName = "Fshare",
+            executeStandard = { res, subCb, cb -> if (res.season == null) invokeFshare(res.title, res.imdbId, subCb, cb) }
+        ),
+        ProviderDef(
+            key = "p_videasy", displayName = "Videasy",
+            executeStandard = { res, subCb, cb -> invokeVideasy(res.title, res.tmdbId, res.imdbId, res.year, res.season, res.episode, subCb, cb) }
+        ),
+        ProviderDef(
+            key = "p_vaplayer", displayName = "VaPlayer",
+            executeStandard = { res, subCb, cb -> invokeVaPlayer(res.imdbId, res.season, res.episode, subCb, cb) },
+            executeAnime = { res, subCb, cb -> invokeVaPlayer(res.imdbId, res.imdbSeason, res.imdbEpisode, subCb, cb) }
         ),
         ProviderDef(
             key = "p_vidlink", displayName = "Vidlink",
@@ -257,8 +266,16 @@ object ProviderRegistry {
             executeStandard = { res, subCb, cb -> invokeProjectfreetv(res.title, res.airedYear ?: res.year, res.season, res.episode, subCb, cb) }
         ),
         ProviderDef(
+            key = "p_mlsbd", displayName = "Mlsbd",
+            executeStandard = { res, subCb, cb -> invokeMlsbd(res.title, res.airedYear ?: res.year, res.season, subCb, cb) }
+        ),
+        ProviderDef(
             key = "p_levidia", displayName = "Levidia",
             executeStandard = { res, subCb, cb -> invokeLevidia(res.title, res.year, res.season, res.episode, subCb, cb) },
+        ),
+        ProviderDef(
+            key = "p_hdghartv", displayName = "HdGharTv",
+            executeStandard = { res, subCb, cb -> if(!res.isAnime) invokeHdGharTv(res.title, res.tmdbId, res.season, res.episode, subCb, cb) },
         ),
         ProviderDef(
             key = "p_dahmermovies", displayName = "DahmerMovies",
@@ -326,6 +343,14 @@ object ProviderRegistry {
         ProviderDef(
             key = "p_animedao", displayName = "Animedao",
             executeAnime = { res, subCb, cb -> invokeAnimedao(res.imdbTitle ?: res.title, res.year, res.episode, subCb, cb) }
+        ),
+        ProviderDef(
+            key = "p_anikoto", displayName = "Anikoto",
+            executeAnime = { res, subCb, cb -> invokeAnikoto(res.imdbTitle ?: res.title, res.year, res.episode, subCb, cb) }
+        ),
+        ProviderDef(
+            key = "p_anikage", displayName = "Anikage",
+            executeAnime = { res, subCb, cb -> invokeAnikage(res.title, res.anilistId, res.episode, subCb, cb) }
         ),
         ProviderDef(
             key = "p_anidb", displayName = "Anidb",

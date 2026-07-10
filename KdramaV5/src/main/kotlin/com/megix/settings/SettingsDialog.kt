@@ -43,6 +43,9 @@ internal object SettingsDialog {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 8.dp(context))
         })
 
+        // Cloudflare bypass card
+        layout.addView(buildCloudflareBypassCard(context, pending))
+
         // Scraping settings card
         layout.addView(buildCollapsibleCard(context, "⚙️  Scraping Settings",
             accentA = Color.parseColor("#06B6D4"), accentB = Color.parseColor("#0891B2")) {
@@ -978,6 +981,38 @@ internal object SettingsDialog {
                     valText.text = currentVal.toString()
                 }
             })
+        }
+    }
+
+    // =========================================================
+    //  CLOUDFLARE BYPASS CARD
+    // =========================================================
+
+    private fun buildCloudflareBypassCard(
+        context: Context,
+        pending: MutableMap<String, Any?>
+    ): View {
+        val theme = SettingsTheme
+        return buildCollapsibleCard(context, "Cloudflare Bypass", false,
+            accentA = Color.parseColor("#22C55E"), accentB = Color.parseColor("#16A34A")) {
+
+            val sites = Settings.getCloudflareBypassDomains()
+
+            addView(TextView(context).apply {
+                text = "Tap a site to open the browser and solve Cloudflare challenge:"
+                textSize = 12f; setTextColor(theme.TEXT_SECONDARY)
+                setPadding(0, 4.dp(context), 0, 8.dp(context))
+            })
+
+            sites.forEach { domainObj ->
+                addView(SettingsWidgets.pillBtn(context,
+                    "Open ${domainObj.displayName}",
+                    Color.parseColor("#22C55E"), Color.parseColor("#0B1120"), Color.parseColor("#059669")
+                ) {
+                    SettingsWebView.showCloudflareBypass(context, "https://${domainObj.domain}") { }
+                })
+                addView(SettingsWidgets.hSpacer(context, 6))
+            }
         }
     }
 

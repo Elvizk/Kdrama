@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.*
 import com.lagradost.nicehttp.NiceResponse
 import com.lagradost.api.Log
+import android.webkit.CookieManager
 
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
@@ -38,8 +39,33 @@ import kotlinx.coroutines.sync.withLock
 
 object CineStreamExtractors {
 
+    private const val CF_LOG_TAG = "CineStreamCloudflare"
+    // Must match WebView User-Agent for Cloudflare cookie validation
+    private const val CF_BYPASS_USER_AGENT = "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
     private val cfKiller by lazy { CloudflareKiller() }
     private val cfMutex = Mutex()
+
+    private fun injectWebviewCookies(url: String, headers: Map<String, String>): Map<String, String> {
+        val match = Settings.hasCloudflareBypassForUrl(url)
+        Log.d(CF_LOG_TAG, "injectWebviewCookies: match=$match url=$url")
+        if (!match) return headers
+
+        val savedCookie = Settings.getCookieForDomain(url)
+        val cookieValue = savedCookie?.takeIf { it.isNotBlank() }
+            ?: CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }
+
+        if (cookieValue == null) {
+            Log.d(CF_LOG_TAG, "injectWebviewCookies: no cookies found for $url")
+            return headers
+        }
+        Log.d(CF_LOG_TAG, "injectWebviewCookies: injecting cookies for $url => ${cookieValue.take(50)}...")
+
+        val merged = headers.toMutableMap()
+        val existingCookie = merged["Cookie"].orEmpty()
+        merged["Cookie"] = if (existingCookie.isBlank()) cookieValue else "$existingCookie; $cookieValue"
+        Log.d(CF_LOG_TAG, "injectWebviewCookies: Cookie header added for $url")
+        return merged
+    }
 
     suspend fun invokeAllSources(
         res: AllLoadLinksData,
@@ -135,24 +161,70 @@ object CineStreamExtractors {
     }
 
     private fun isCloudflarePage(response: NiceResponse): Boolean {
-        val server = response.headers["Server"] ?: ""
-        return server.contains("cloudflare", true) && response.code in listOf(403, 503)
+        return response.code in listOf(403, 503)
     }
 
     suspend fun cfGet(url: String, headers: Map<String, String> = emptyMap(), allowRedirects: Boolean = true): NiceResponse {
-        val response = app.get(url, headers = headers, allowRedirects = allowRedirects)
-        return if (isCloudflarePage(response)) {
-            cfMutex.withLock {
-                val retryResponse = app.get(url, headers = headers, interceptor = cfKiller, allowRedirects = allowRedirects)
-                if (isCloudflarePage(retryResponse)) {
-                    cfKiller.savedCookies.clear()
-                    app.get(url, headers = headers, interceptor = cfKiller, allowRedirects = allowRedirects)
-                } else {
-                    retryResponse
-                }
+        Log.d(CF_LOG_TAG, "cfGet start: $url headers=$headers")
+        val headersWithAgent = headers.toMutableMap()
+        if (!headersWithAgent.containsKey("User-Agent")) {
+            headersWithAgent["User-Agent"] = CF_BYPASS_USER_AGENT
+        }
+        val effectiveHeaders = injectWebviewCookies(url, headersWithAgent)
+        Log.d(CF_LOG_TAG, "cfGet effective headers: User-Agent=${effectiveHeaders["User-Agent"]?.take(50)}...")
+        val response = app.get(url, headers = effectiveHeaders, allowRedirects = allowRedirects)
+        if (!isCloudflarePage(response)) {
+            Log.d(CF_LOG_TAG, "cfGet success: ${response.code} for $url")
+            return response
+        }
+        Log.d(CF_LOG_TAG, "cfGet Cloudflare detected: ${response.code} for $url, retrying with CloudflareKiller")
+        return cfMutex.withLock {
+            val retryResponse = app.get(url, headers = effectiveHeaders, interceptor = cfKiller, allowRedirects = allowRedirects)
+            if (isCloudflarePage(retryResponse)) {
+                Log.d(CF_LOG_TAG, "cfGet retry blocked again: ${retryResponse.code}, clearing saved cookies and retrying")
+                cfKiller.savedCookies.clear()
+                val finalResponse = app.get(url, headers = effectiveHeaders, interceptor = cfKiller, allowRedirects = allowRedirects)
+                Log.d(CF_LOG_TAG, "cfGet final response: ${finalResponse.code} for $url")
+                finalResponse
+            } else {
+                Log.d(CF_LOG_TAG, "cfGet retry succeeded: ${retryResponse.code} for $url")
+                retryResponse
             }
-        } else {
-            response
+        }
+    }
+
+    suspend fun cfPost(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        data: Map<String, String> = emptyMap(),
+        json: Any? = null,
+        allowRedirects: Boolean = true
+    ): NiceResponse {
+        Log.d(CF_LOG_TAG, "cfPost start: $url headers=$headers data=${data.keys} json=${json != null}")
+        val headersWithAgent = headers.toMutableMap()
+        if (!headersWithAgent.containsKey("User-Agent")) {
+            headersWithAgent["User-Agent"] = CF_BYPASS_USER_AGENT
+        }
+        val effectiveHeaders = injectWebviewCookies(url, headersWithAgent)
+        Log.d(CF_LOG_TAG, "cfPost effective headers: User-Agent=${effectiveHeaders["User-Agent"]?.take(50)}...")
+        val response = app.post(url, headers = effectiveHeaders, data = data, json = json, allowRedirects = allowRedirects)
+        if (!isCloudflarePage(response)) {
+            Log.d(CF_LOG_TAG, "cfPost success: ${response.code} for $url")
+            return response
+        }
+        Log.d(CF_LOG_TAG, "cfPost Cloudflare detected: ${response.code} for $url, retrying with CloudflareKiller")
+        return cfMutex.withLock {
+            val retryResponse = app.post(url, headers = effectiveHeaders, data = data, json = json, interceptor = cfKiller, allowRedirects = allowRedirects)
+            if (isCloudflarePage(retryResponse)) {
+                Log.d(CF_LOG_TAG, "cfPost retry blocked again: ${retryResponse.code}, clearing saved cookies and retrying")
+                cfKiller.savedCookies.clear()
+                val finalResponse = app.post(url, headers = effectiveHeaders, data = data, json = json, interceptor = cfKiller, allowRedirects = allowRedirects)
+                Log.d(CF_LOG_TAG, "cfPost final response: ${finalResponse.code} for $url")
+                finalResponse
+            } else {
+                Log.d(CF_LOG_TAG, "cfPost retry succeeded: ${retryResponse.code} for $url")
+                retryResponse
+            }
         }
     }
 
@@ -4696,6 +4768,324 @@ object CineStreamExtractors {
                 if(subtitleUrl != null) subtitleCallback(newSubtitleFile(subtitleLang, subtitleUrl))
 
                 loadCustomExtractor("Animedao[$type] $server", rawUrl, "$animedaoAPI/", subtitleCallback, callback)
+            }
+        }
+    }
+
+    suspend fun invokeMlsbd(
+        title: String? = null,
+        year: Int? = null,
+        season: Int? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        val query = "$title $year".createSlug()
+        val tag = if(season != null) "[Combined]" else ""
+        val url = "$mlsbdAPI/$query"
+
+        Log.d("Mlsbd", "url: $url")
+
+        val document = app.get(url).document
+
+        val downloadSection = document.selectFirst(".post-section-title.download")
+
+        if (downloadSection?.text() != "Download Now") {
+            Log.d("Mlsbd", "No download section found")
+            return
+        }
+
+        document.select(".post-content p > a")
+            .safeAmap {
+
+                val link = it.attr("href")
+
+                Log.d("Mlsbd", "link: $link")
+
+                app.get(link).document.select("li > a").safeAmap { source ->
+
+                    Log.d("Mlsbd", "source: ${source.attr("href")}")
+
+                    loadSourceNameExtractor(
+                        "Mlsbd$tag",
+                        source.attr("href"),
+                        "",
+                        subtitleCallback,
+                        callback
+                    )
+                }
+            }
+    }
+
+    suspend fun invokeVaPlayer(
+        imdbId: String? = null,
+        season: Int? = null,
+        episode: Int? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+
+        val url = if(season == null) {
+            "$vaPlayerAPI/api.php?imdb=$imdbId&type=movie"
+        } else {
+            "$vaPlayerAPI/api.php?imdb=$imdbId&type=tv&season=$season&episode=$episode"
+        }
+
+        val json = app.get(url).text
+
+        val res = tryParseJson<VaPlayerResponse>(json) ?: return
+
+        res.data?.stream_urls?.safeAmap { streamUrl ->
+            M3u8Helper.generateM3u8(
+                "VaPlayer",
+                streamUrl,
+                "https://nextgencloudfabric.com/"
+            ).forEach(callback)
+        }
+
+        res.default_subs?.amap { sub ->
+            if (!sub.url.isNullOrBlank()) {
+                subtitleCallback.invoke(
+                    newSubtitleFile(
+                        sub.lang ?: sub.code ?: "Unknown",
+                        sub.url
+                    )
+                )
+            }
+        }
+
+    }
+
+    suspend fun invokeFshare(
+        title: String? = null,
+        imdbId: String? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+
+        fun String?.qualityInt(): Int = this?.toIntOrNull() ?: 0
+
+        val slug = "$title episode 1 $imdbId".createSlug()
+
+        val url = "$fshareAPI/w/$slug"
+
+        Log.d("Fshare", "url: $url")
+
+        val doc = app.get(url).document
+
+        val regex = Regex("""Movie\.setSource\('([^']+)'""")
+        val match = regex.find(doc.toString())
+        val token = match?.groupValues?.get(1) ?: return
+
+        Log.d("Fshare", "token: $token")
+
+        val trailer = doc.selectFirst("input#trailer")?.attr("value") ?: return
+
+        Log.d("Fshare", "trailer: $trailer")
+
+        val json = app.get("$fshareAPI/api/file/$token/source?trailer=$trailer&type=watch").text
+
+        Log.d("Fshare", "json: $json")
+
+        val parsed = tryParseJson<FshareResponse>(json) ?: return
+
+        val allSources = parsed.data.file.sources + parsed.data.file.alternatives.flatten()
+
+        val headers = mapOf(
+            "referer" to url,
+            "user-agent" to "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+        )
+
+        allSources.distinctBy { it.id }.forEach { source ->
+            callback(
+                newExtractorLink(
+                    "Fshare",
+                    "Fshare",
+                    fshareAPI + source.src,
+                    ExtractorLinkType.VIDEO
+                ) {
+                    this.quality = source.quality.qualityInt()
+                    this.headers = headers
+                }
+            )
+        }
+
+    }
+
+    suspend fun invokeAnikage(
+        title: String? = null,
+        aniId: Int? = null,
+        episode: Int? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ) {
+        val searchUrl = "$anikageAPI/api/media/anime/browse?q=$title&sort=popularity&page=1&limit=25&adult=true"
+        val searchRes = app.get(searchUrl).parsedSafe<AnikageSearch>() ?: return
+        val match = searchRes.data?.find { it.anilistId == aniId } ?: return
+        val slug = match.slug ?: return
+
+        Log.d("Anikage", "slug: $slug")
+
+        val serversUrl = "$anikageAPI/api/media/anime/$slug/episodes/${episode ?: 1}/servers"
+        val serversResponse = app.get(serversUrl).text
+        val parsed = tryParseJson<AnikageServersResponse>(serversResponse) ?: return
+        val serverIds = parsed.servers?.mapNotNull { it.id } ?: return
+
+        Log.d("Anikage", "serverIds: $serverIds")
+
+        val langs = listOf("sub", "dub")
+
+        serverIds.safeAmap { server ->
+
+            langs.safeAmap { lang ->
+                val sourceUrl = "$anikageAPI/api/media/anime/$slug/episodes/${episode ?: 1}/sources?provider=$server&lang=$lang"
+                val sourceRes = app.get(sourceUrl).parsedSafe<AnikageSource>() ?: return@safeAmap
+
+                Log.d("Anikage", "sourceRes: $sourceRes")
+
+                sourceRes.sources?.forEach { source ->
+                    val encodedUrl = source.url ?: return@forEach
+                    val isM3U8 = source.isM3U8 ?: false
+                    val proxiedUrl = "https://prox.anikage.cc/${if(isM3U8) "m3u8" else "stream"}/$encodedUrl"
+
+                    Log.d("Anikage", "proxiedUrl: $proxiedUrl")
+
+                    callback.invoke(
+                        newExtractorLink(
+                            "Anikage[${server.capitalizeServer()}] ${lang.capitalizeServer()}",
+                            "Anikage[${server.capitalizeServer()}] ${lang.capitalizeServer()}",
+                            proxiedUrl,
+                            if(isM3U8) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+                        ) {
+                            this.quality = 1080
+                            this.referer = "$anikageAPI/"
+                        }
+                    )
+                }
+
+                sourceRes.subtitles?.forEach { sub ->
+                    val file = sub.file ?: return@forEach
+                    val label = sub.label ?: "Unknown"
+                    subtitleCallback(newSubtitleFile(label, file))
+                }
+
+                sourceRes.embeds?.safeAmap { embed ->
+                    val embedUrl = embed.url
+
+                    Log.d("Anikage", "embedUrl: $embedUrl")
+
+                    loadSourceNameExtractor("Anikage [${embed.type.capitalizeServer()}]" ,embedUrl, "$anikageAPI/", subtitleCallback, callback)
+                }
+            }
+
+        }
+
+    }
+
+    suspend fun invokeHdGharTv(
+        title: String? = null,
+        tmdbId: Int? = null,
+        season: Int? = null,
+        episode: Int? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ) {
+        val type = if(season == null) "movies" else "series"
+
+        val searchJson = app.get("$hdGharTvAPI/api/search?q=$title&type=all&page=1").text
+        val searchResponse = tryParseJson<HdGharSearchResponse>(searchJson) ?: return
+        val allItems = searchResponse.movies.orEmpty() + searchResponse.series.orEmpty()
+        val matchedId = allItems.find { it.tmdbId == tmdbId }?.id ?: return
+
+        val detailsJson = app.get("$hdGharTvAPI/api/$type/public/$matchedId").text
+        val detailsResponse = tryParseJson<HdGharDetailsResponse>(detailsJson) ?: return
+
+        val extractedLinks = if (type == "movies") {
+            detailsResponse.streamingLinks.orEmpty()
+        } else {
+            val targetSeason = detailsResponse.seasons?.find { it.seasonNumber == season }
+            val targetEpisode = targetSeason?.episodes?.find { it.episodeNumber == episode }
+            targetEpisode?.streamingLinks.orEmpty()
+        }
+
+        extractedLinks.forEach { link ->
+            val url = link.url ?: return@forEach
+            val quality = getIndexQuality(link.quality)
+            val isM3u8 = link.type?.contains("hls", ignoreCase = true) == true || url.contains(".m3u8")
+
+            callback.invoke(
+                newExtractorLink(
+                    "HdGharTv",
+                    "HdGharTv",
+                    url,
+                    if(isM3u8) ExtractorLinkType.M3U8 else INFER_TYPE
+                ) {
+                    this.quality = quality
+                    this.referer = "$hdGharTvAPI/"
+                }
+            )
+        }
+
+    }
+
+    suspend fun invokeAnikoto(
+        title: String? = null,
+        year: Int? = null,
+        episode: Int? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ) {
+        val headers = mapOf(
+            "referer" to "$anikotoAPI/",
+            "x-requested-with" to "XMLHttpRequest"
+        )
+
+        val document = app.get(
+            "$anikotoAPI/filter?keyword=$title&type=&year%5B%5D=$year&ep_min=&ep_max=&sort=default"
+        ).document
+
+        val dataTip = document.selectFirst("div.tip.ani")?.attr("data-tip") ?: return
+
+        Log.d("Anikoto", "dataTip: $dataTip")
+
+        val infoJson = app.get("$anikotoAPI/ajax/episode/list/$dataTip?vrf=", headers = headers).text
+
+        Log.d("Anikoto", "infoJson: $infoJson")
+
+        val infoParsed = tryParseJson<AnikotoResponse>(infoJson) ?: return
+        val infoDocument = Jsoup.parse(infoParsed.result)
+
+        val epAnchor = infoDocument.selectFirst("ul.ep-range li a[data-num='$episode']") ?: return
+        val dataIds = epAnchor.attr("data-ids")
+
+        Log.d("Anikoto", "dataIds: $dataIds")
+
+        val serversJson = app.get("$anikotoAPI/ajax/server/list?servers=$dataIds", headers = headers).text
+
+        Log.d("Anikoto", "serversJson: $serversJson")
+
+        val serversParsed = tryParseJson<AnikotoResponse>(serversJson) ?: return
+        val serversDocument = Jsoup.parse(serversParsed.result)
+
+        val serverTypes = serversDocument.select("div.servers div.type")
+
+        serverTypes.safeAmap { serverType ->
+            val type = serverType.attr("data-type").capitalizeServer()
+
+            val serverList = serverType.select("ul li")
+            serverList.safeAmap { server ->
+                val serverName = server.text().trim()
+                val linkId = server.attr("data-link-id")
+
+                Log.d("Anikoto", "linkId: $linkId")
+
+                val serverResponseJson = app.get("$anikotoAPI/ajax/server?get=$linkId", headers = headers).text
+                val serverResponse = tryParseJson<AnikotoServerResponse>(serverResponseJson) ?: return@safeAmap
+                val embedUrl = serverResponse.result?.url ?: return@safeAmap
+
+                Log.d("Anikoto", "Extracted embed URL: $embedUrl")
+
+                loadCustomExtractor("Anikoto[$type]", embedUrl, "$anikotoAPI/", subtitleCallback, callback)
+
             }
         }
     }

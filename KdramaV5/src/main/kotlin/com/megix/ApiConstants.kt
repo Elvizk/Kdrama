@@ -58,6 +58,11 @@ const val vidcoreAPI = "https://vidcore.net"
 const val torrentioAPI = "https://torrentio.strem.fun/limit=4"
 const val torrentsdbAPI = "https://torrentsdb.com/eyJsaW1pdCI6IjMiLCJkZWJyaWRvcHRpb25zIjpbIm5vZG93bmxvYWRsaW5rcyJdfQ=="
 const val vidsrcAPI = "https://vidsrc.sbs"
+const val anikotoAPI = "https://anikototv.to"
+const val vaPlayerAPI = "https://streamdata.vaplayer.ru"
+const val fshareAPI = "https://fsharetv.cc"
+const val anikageAPI = "https://anikage.cc"
+const val hdGharTvAPI = "https://hdghartv.cc"
 
 // ── 2. Dynamic API Config ────────────────────────────────────
 // Loaded once via init() called from CineStream.load()
@@ -97,3 +102,4 @@ val dudefilmsAPI get() = api("dudefilms")
 val m4ufreeAPI get() = api("m4ufree")
 val zinkmoviesAPI get() = api("zinkmovies")
 val animedaoAPI get() = api("animedao")
+val mlsbdAPI get() = api("mlsbd")

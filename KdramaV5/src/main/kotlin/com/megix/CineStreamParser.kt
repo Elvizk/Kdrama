@@ -922,3 +922,155 @@ data class VidcoreStreamData(
     val noReferrer: Boolean?,
     val tracks: List<VidcoreTrack>?,
 )
+
+//Anikage
+
+data class AnikageSearch(
+    @param:JsonProperty("count") val count: Int? = null,
+    @param:JsonProperty("data") val data: List<AnikageResult>? = null
+)
+
+data class AnikageResult(
+    @param:JsonProperty("slug") val slug: String? = null,
+    @param:JsonProperty("anilistId") val anilistId: Int? = null,
+)
+
+data class AnikageServersResponse(
+    val servers: List<AnikageServer>? = null,
+    val embeds: List<AnikageEmbeds>? = null
+)
+
+data class AnikageServer(
+    val id: String? = null,
+)
+
+data class AnikageEmbeds(
+    val id: String? = null,
+)
+
+data class AnikageSource(
+    @param:JsonProperty("sources") val sources: List<AnikageStreamSource>? = null,
+    @param:JsonProperty("subtitles") val subtitles: List<AnikageSub>? = null,
+    @param:JsonProperty("embeds") val embeds: List<AnikageEmbed>? = null,
+)
+data class AnikageSub(
+    @param:JsonProperty("file") val file: String? = null,
+    @param:JsonProperty("label") val label: String? = null,
+)
+data class AnikageEmbed(
+    @param:JsonProperty("url") val url: String,
+    @param:JsonProperty("type") val type: String,
+    @param:JsonProperty("server") val server: String,
+)
+data class AnikageStreamSource(
+    @param:JsonProperty("url") val url: String? = null,
+    @param:JsonProperty("quality") val quality: String? = null,
+    @param:JsonProperty("isM3U8") val isM3U8: Boolean? = null,
+)
+
+//Fshare
+
+data class FshareDownload(
+    val src: String,
+    val label: String
+)
+
+data class FshareFile(
+    val sources: List<FshareSource>,
+    val backups: List<FshareSource>,
+    val alternatives: List<List<FshareSource>>,
+    val downloads: List<FshareDownload>?,
+    val vast: Int?
+)
+
+data class FshareData(
+    val file: FshareFile
+)
+
+data class FshareResponse(
+    val data: FshareData,
+    val status: String
+)
+
+data class FshareSource(
+    val src: String,
+    val label: String,
+    val type: String,
+    val quality: String?,
+    val storage: String,
+    val id: String,
+    val selected: Boolean? = null
+)
+
+//VaPlayer
+
+data class VaPlayerResponse(
+    val status_code: String? = null,
+    val data: VaPlayerData? = null,
+    val default_subs: List<VaPlayerSub>? = null
+)
+
+data class VaPlayerData(
+    val title: String? = null,
+    val imdb_id: String? = null,
+    val season: String? = null,
+    val episode: String? = null,
+    val file_name: String? = null,
+    val backdrop: String? = null,
+    val stream_urls: List<String>? = null
+)
+
+data class VaPlayerSub(
+    val lang: String? = null,
+    val code: String? = null,
+    val url: String? = null
+)
+
+//Anikoto
+
+data class AnikotoResponse(
+    val status: Int,
+    val result: String
+)
+
+data class AnikotoServerResponse(
+    val status: Int? = null,
+    val result: AnikotoServerResult? = null
+)
+
+data class AnikotoServerResult(
+    val url: String? = null,
+)
+
+//HdGharTv
+
+data class HdGharSearchResponse(
+    val movies: List<HdGharSearchItem>? = null,
+    val series: List<HdGharSearchItem>? = null
+)
+
+data class HdGharSearchItem(
+    @param:JsonProperty("_id") val id: String? = null,
+    val tmdbId: Int? = null
+)
+
+data class HdGharDetailsResponse(
+    val streamingLinks: List<HdGharLink>? = null, // For Movies
+    val seasons: List<HdGharSeason>? = null              // For Series
+)
+
+data class HdGharSeason(
+    val seasonNumber: Int? = null,
+    val episodes: List<HdGharEpisode>? = null
+)
+
+data class HdGharEpisode(
+    val episodeNumber: Int? = null,
+    val streamingLinks: List<HdGharLink>? = null
+)
+
+data class HdGharLink(
+    val quality: String? = null,
+    val url: String? = null,
+    val type: String? = null
+)
