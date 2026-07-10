@@ -916,19 +916,16 @@ object CineStreamExtractors {
 
         val servers = listOf(
             "myflixerzupcloud",
-            "1movies",
             "downloader2",
-            "primewire",
             "m4uhd",
             "hdmovie",
             "cdn",
-            "primesrcme",
-            "visioncine",
-            "overflix",
             "superflix",
-            "cuevana",
             "lamovie",
-            "mb-flix",
+            "jett",
+            "tejo",
+            "neon2",
+            "ym"
         )
 
         if(title == null) return
@@ -936,16 +933,21 @@ object CineStreamExtractors {
         val firstPass = quote(title)
         val encTitle = quote(firstPass)
 
+        val enc = 2
+
+        val seedJson = app.get("$videasyAPI/seed?mediaId=$tmdbId", headers = headers).text
+        val seed = JSONObject(seedJson).getString("seed")
+
         servers.safeAmap { server ->
             val url = if (season == null) {
-                "$videasyAPI/$server/sources-with-title?title=$encTitle&mediaType=movie&year=$year&tmdbId=$tmdbId&imdbId=$imdbId"
+                "$videasyAPI/$server/sources-with-title?title=$encTitle&mediaType=movie&year=$year&tmdbId=$tmdbId&imdbId=$imdbId&enc=$enc&seed=$seed"
             } else {
-                "$videasyAPI/$server/sources-with-title?title=$encTitle&mediaType=tv&year=$year&tmdbId=$tmdbId&episodeId=$episode&seasonId=$season&imdbId=$imdbId"
+                "$videasyAPI/$server/sources-with-title?title=$encTitle&mediaType=tv&year=$year&tmdbId=$tmdbId&episodeId=$episode&seasonId=$season&imdbId=$imdbId&enc=$enc&seed=$seed"
             }
 
             val enc_data = app.get(url, headers = headers).text
 
-            val jsonBody = mapOf("text" to enc_data, "id" to tmdbId)
+            val jsonBody = mapOf("text" to enc_data, "id" to tmdbId, "seed" to seed)
             val response = app.post(
                 "$multiDecryptAPI/dec-videasy",
                 json = jsonBody
