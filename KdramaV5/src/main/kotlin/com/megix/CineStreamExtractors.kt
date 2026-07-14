@@ -5051,4 +5051,178 @@ object CineStreamExtractors {
         }
     }
 
+    suspend fun invokeVidup(
+        tmdbId: Int? = null,
+        season: Int? = null,
+        episode: Int? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+
+        val headers = mapOf(
+            "User-Agent" to USER_AGENT,
+            "Referer" to "$vidupAPI/",
+            "X-Requested-With" to "XMLHttpRequest"
+        )
+
+        val url = if(season != null) {
+            "$vidupAPI/tv/$tmdbId/$season/$episode"
+        } else {
+            "$vidupAPI/movie/$tmdbId"
+        }
+
+        val text = app.get(url).text
+        val regex = Regex("""\\"en\\":\\"(.*?)\\"""")
+        val enc = regex.find(text)?.groupValues?.get(1) ?: return
+
+        val responseText = app.get("$multiDecryptAPI/enc-vidup?text=$enc", headers = headers).text
+
+        Log.d("Vidup", "responseText: $responseText")
+
+        val parsedData = tryParseJson<VidupResponse>(responseText)
+
+        if (parsedData?.status != 200) return
+
+        val result = parsedData.result ?: return
+        val serversUrl = result.servers ?: return
+        val streamUrl = result.stream ?: return
+        val token = result.token ?: return
+        val postHeaders = headers + mapOf("X-CSRF-Token" to token)
+
+        val serversEncrypted = app.post(serversUrl, headers = postHeaders).text
+
+        Log.d("Vidup", "serversEncrypted: $serversEncrypted")
+
+        val decResponseText = app.post(
+            "$multiDecryptAPI/dec-vidup",
+            json = mapOf("text" to serversEncrypted)
+        ).text
+
+        Log.d("Vidup", "decResponseText: $decResponseText")
+
+        val parsedServers = tryParseJson<VidupServersResponse>(decResponseText)
+        if (parsedServers?.status != 200) return
+
+        Log.d("Vidup", "parsedServers: $parsedServers")
+
+        val serverList = parsedServers.result ?: return
+
+        serverList.safeAmap { server ->
+            val serverData = server.data ?: return@safeAmap
+            val serverName = server.name ?: "Vidup"
+            val currentStreamUrl = "$streamUrl/$serverData"
+
+            Log.d("Vidup", "$serverName currentStreamUrl: $currentStreamUrl")
+
+            val streamEncrypted = app.post(currentStreamUrl, headers = postHeaders).text
+
+            Log.d("Vidup", "$serverName streamEncrypted: $streamEncrypted")
+
+            val finalDecText = app.post(
+                "$multiDecryptAPI/dec-vidup",
+                json = mapOf("text" to streamEncrypted)
+            ).text
+
+            Log.d("Vidup", "$serverName finalDecText: $finalDecText")
+
+            val finalStreamData = tryParseJson<VidupStreamResponse>(finalDecText)
+            val streamResult = finalStreamData?.result
+
+            if (finalStreamData?.status == 200 && streamResult != null) {
+                val finalUrl = streamResult.url
+
+                if (finalUrl != null) {
+                    callback.invoke(
+                        newExtractorLink(
+                            "Vidup",
+                            "Vidup $serverName",
+                            finalUrl,
+                            if(finalUrl.contains(".m3u8")) ExtractorLinkType.M3U8 else INFER_TYPE
+                        ) {
+                            this.referer = "$vidupAPI/"
+                            this.quality = Qualities.P1080.value
+                        }
+                    )
+                }
+
+                streamResult.tracks?.forEach { track ->
+                    val subUrl = track.file
+                    val subLabel = track.label ?: "Unknown"
+
+                    if (subUrl != null) {
+                        subtitleCallback.invoke(
+                            newSubtitleFile(
+                                subLabel,
+                                subUrl
+                            )
+                        )
+                    }
+                }
+
+            }
+        }
+
+    }
+
+    suspend fun invokeCtgMovies(
+        title: String? = null,
+        season: Int? = null,
+        episode: Int? = null,
+        type: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ) {
+        val contentType = if(type == "anime") {
+            "anime"
+        } else if (season != null) {
+            "tv"
+        } else {
+            "movies"
+        }
+
+        val slug = title.createSlug() ?: return
+
+        val html = app.get("$ctgMoviesBaseAPI/$contentType/$slug").text
+        val allLinks = parseCtgLinks(html)
+        if (allLinks.isEmpty()) return
+
+        val links = if (season != null && episode != null) {
+            allLinks.filter { it.seasonNumber == season && it.episodeNumber == episode }
+                .ifEmpty { allLinks }
+        } else {
+            allLinks
+        }
+
+        if (links.isEmpty()) return
+
+        val STREAM_HEADERS = mapOf(
+            "User-Agent" to USER_AGENT,
+            "Accept" to "video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5",
+            "Accept-Language" to "en-US,en;q=0.9",
+            "Accept-Encoding" to "identity",
+            "Referer" to "$ctgMoviesBaseAPI/",
+            "Sec-Fetch-Dest" to "video",
+            "Sec-Fetch-Mode" to "no-cors",
+            "Sec-Fetch-Site" to "cross-site",
+            "DNT" to "1"
+        )
+
+        links.forEach { link ->
+            val playUrl = link.hlsUrl ?: link.url ?: return@forEach
+            val isM3u8 = playUrl.contains(".m3u8") || link.hlsUrl != null
+
+            callback.invoke(
+                newExtractorLink(
+                    "CTGMovies",
+                    "CTGMovies ${link.source ?: "default"}",
+                    playUrl,
+                    type = if (isM3u8) ExtractorLinkType.M3U8 else INFER_TYPE
+                ) {
+                    this.quality = getIndexQuality(link.quality)
+                    this.headers = STREAM_HEADERS
+                }
+            )
+        }
+    }
+
 }

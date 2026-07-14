@@ -41,10 +41,7 @@ object ProviderRegistry {
             executeStandard = { res, _, cb -> invokeStremioTorrents("TorrentsDB", torrentsdbAPI, res.imdbId, res.season, res.episode, cb) },
             executeAnime = { res, _, cb -> invokeStremioTorrents("TorrentsDB", torrentsdbAPI, "kitsu:${res.kitsuId}", res.season, res.episode, cb) }
         ),
-        ProviderDef(
-            key = "p_animetosho", displayName = "🧲 AnimeTosho", isTorrent = true,
-            executeAnime = { res, _, cb -> invokeAnimetosho(res.kitsuId, res.malId, res.episode, cb) }
-        ),
+
 
         // ── Stremio Addons & Subtitles ────────────────────────────
         ProviderDef(
@@ -167,9 +164,14 @@ object ProviderRegistry {
             executeAnime = { res, _, cb -> invokeAv1encodes(res.imdbTitle, res.imdbSeason, res.imdbEpisode, cb) }
         ),
         ProviderDef(
-            key = "p_reanime", displayName = "Reanime",
-            executeAnime = { res, subCb, cb -> invokeReanime(res.anilistId, res.episode, subCb, cb) }
+            key = "p_vidup", displayName = "Vidup",
+            executeStandard = { res, subCb, cb -> invokeVidup(res.tmdbId, res.season, res.episode, subCb, cb) }
         ),
+        ProviderDef(
+            key = "p_ctgmovies", displayName = "CtgMovies",
+            executeStandard = { res, subCb, cb -> invokeCtgMovies(res.title, res.season, res.episode, "normal", subCb, cb) }
+        ),
+
         ProviderDef(
             key = "p_zinkmovies", displayName = "Zinkmovies",
             executeStandard = { res, subCb, cb -> invokeZinkmovies(res.title, res.year, res.season, res.episode, subCb, cb) },
@@ -274,11 +276,7 @@ object ProviderRegistry {
             executeStandard = { res, _, cb -> invokeDahmerMovies(res.title, res.year, res.season, res.episode, cb) },
             executeAnime = { res, _, cb -> invokeDahmerMovies(res.imdbTitle, res.imdbYear, res.imdbSeason, res.imdbEpisode, cb) }
         ),
-        ProviderDef(
-            key = "p_animesalt", displayName = "Animesalt",
-            executeStandard = { res, subCb, cb -> if (res.isAnime || res.isCartoon) invokeAnimesalt(res.title, res.season, res.episode, subCb, cb) },
-            executeAnime = { res, subCb, cb -> invokeAnimesalt(res.imdbTitle, res.imdbSeason, res.imdbEpisode, subCb, cb) }
-        ),
+
         ProviderDef(
             key = "p_vadapav", displayName = "Vadapav",
             executeStandard = { res, _, cb -> invokeVadapav(res.title, res.year, res.season, res.episode, cb) },
@@ -327,64 +325,19 @@ object ProviderRegistry {
             key = "p_onetouchtv", displayName = "Onetouchtv",
             executeStandard = { res, subCb, cb -> invokeOnetouchtv(res.title, res.airedYear ?: res.year, res.season, res.episode, subCb, cb) }
         ),
-        ProviderDef(
-            key = "p_toonstream", displayName = "Toonstream",
-            executeStandard = { res, subCb, cb -> if (res.isAnime || res.isCartoon) invokeToonstream(res.title, res.season, res.episode, subCb, cb) },
-            executeAnime = { res, subCb, cb -> invokeToonstream(res.imdbTitle, res.imdbSeason, res.imdbEpisode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_animedao", displayName = "Animedao",
-            executeAnime = { res, subCb, cb -> invokeAnimedao(res.imdbTitle ?: res.title, res.year, res.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_anikoto", displayName = "Anikoto",
-            executeAnime = { res, subCb, cb -> invokeAnikoto(res.imdbTitle ?: res.title, res.year, res.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_anikage", displayName = "Anikage",
-            executeAnime = { res, subCb, cb -> invokeAnikage(res.title, res.anilistId, res.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_anidb", displayName = "Anidb",
-            executeAnime = { res, subCb, cb -> invokeAnidb(res.imdbTitle ?: res.title, res.year, res.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_animepahe", displayName = "AnimePahe",
-            executeMalSync = { data, subCb, cb -> invokeAnimepahe(data.animepaheUrl, data.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_animetoshohttp", displayName = "AnimeToshoHttp",
-            executeMalSync = { data, subCb, cb -> invokeAnimetoshoHttp(data.title, data.malId, data.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_allanime", displayName = "AllAnime",
-            executeAnime = { res, subCb, cb -> invokeAllanime(res.originalTitle ?: res.title, res.year, res.episode, subCb, cb) },
-            executeMalSync = { data, subCb, cb -> if (data.origin == "imdb") invokeAllanime(data.title, data.year, data.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_tokyoinsider", displayName = "TokyoInsider",
-            executeAnime = { res, subCb, cb -> invokeTokyoInsider(res.originalTitle ?: res.title, res.episode, subCb, cb) },
-            executeMalSync = { data, subCb, cb -> if (data.origin == "imdb") invokeTokyoInsider(data.title, data.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_anizone", displayName = "Anizone",
-            executeAnime = { res, subCb, cb -> invokeAnizone(res.originalTitle ?: res.title, res.episode, subCb, cb) },
-            executeMalSync = { data, subCb, cb -> if (data.origin == "imdb") invokeAnizone(data.title, data.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_animes", displayName = "Animes*",
-            executeAnime = { res, subCb, cb -> invokeAnimes(res.malId, res.anilistId, res.episode, res.year, "kitsu", subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_gojo", displayName = "Animetsu",
-            executeAnime = { res, subCb, cb -> invokeGojo(res.title, res.anilistId, res.episode, subCb, cb) },
-            executeMalSync = { data, subCb, cb -> if (data.origin == "imdb") invokeGojo(data.title, data.aniId, data.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_animekizz", displayName = "Animekizz",
-            executeAnime = { res, subCb, cb -> invokeAnimekizz(res.title, res.anilistId, res.episode, subCb, cb) },
-            executeMalSync = { data, subCb, cb -> if (data.origin == "imdb") invokeAnimekizz(data.title, data.aniId, data.episode, subCb, cb) }
-        ),
+
+
+
+
+
+
+
+
+
+
+
+
+
     )
 
     // Dynamically provided to Settings.kt

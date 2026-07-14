@@ -63,6 +63,8 @@ const val vaPlayerAPI = "https://streamdata.vaplayer.ru"
 const val fshareAPI = "https://fsharetv.cc"
 const val anikageAPI = "https://anikage.cc"
 const val hdGharTvAPI = "https://hdghartv.cc"
+const val vidupAPI = "https://vidup.to"
+const val ctgMoviesBaseAPI = "https://ctgmovies.com"
 
 // ── 2. Dynamic API Config ────────────────────────────────────
 // Loaded once via init() called from CineStream.load()

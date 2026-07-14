@@ -1090,3 +1090,50 @@ data class HdGharLink(
     val url: String? = null,
     val type: String? = null
 )
+
+// ── Vidup ────────────────────────────────────────────────────────
+data class VidupResponse(
+    @param:JsonProperty("status") val status: Int? = null,
+    @param:JsonProperty("result") val result: VidupResult? = null
+)
+
+data class VidupResult(
+    @param:JsonProperty("servers") val servers: String? = null,
+    @param:JsonProperty("stream") val stream: String? = null,
+    @param:JsonProperty("token") val token: String? = null
+)
+
+data class VidupServersResponse(
+    @param:JsonProperty("status") val status: Int? = null,
+    @param:JsonProperty("result") val result: List<VidupServer>? = null
+)
+
+data class VidupServer(
+    @param:JsonProperty("name") val name: String? = null,
+    @param:JsonProperty("data") val data: String? = null
+)
+
+data class VidupStreamResponse(
+    @param:JsonProperty("status") val status: Int? = null,
+    @param:JsonProperty("result") val result: VidupStreamResult? = null
+)
+
+data class VidupStreamResult(
+    @param:JsonProperty("url") val url: String? = null,
+    @param:JsonProperty("tracks") val tracks: List<VidupTrack>? = null
+)
+
+data class VidupTrack(
+    @param:JsonProperty("file") val file: String? = null,
+    @param:JsonProperty("label") val label: String? = null
+)
+
+// ── CtgMovies ────────────────────────────────────────────────────
+data class CtgLink(
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val source: String? = null,
+    val quality: String? = null,
+    val hlsUrl: String? = null,
+    val url: String? = null
+)

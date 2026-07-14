@@ -1723,3 +1723,70 @@ fun decodeToBeParsed(encoded: String): String? {
         null
     }
 }
+
+fun parseCtgLinks(html: String): List<CtgLink> {
+    val links = mutableListOf<CtgLink>()
+    val doc = Jsoup.parse(html)
+
+    doc.select("a[href]").forEach { a ->
+        val href = a.attr("href")
+        val text = a.text()
+
+        if (href.contains("stream") || href.contains("embed") || href.contains("player")) {
+            val quality = when {
+                text.contains("1080p", ignoreCase = true) -> "1080p"
+                text.contains("720p", ignoreCase = true) -> "720p"
+                text.contains("480p", ignoreCase = true) -> "480p"
+                else -> null
+            }
+
+            val seasonMatch = Regex("[Ss](\\d+)", RegexOption.IGNORE_CASE).find(text)
+            val episodeMatch = Regex("[Ee](\\d+)", RegexOption.IGNORE_CASE).find(text)
+
+            val seasonNumber = seasonMatch?.groupValues?.get(1)?.toIntOrNull()
+            val episodeNumber = episodeMatch?.groupValues?.get(1)?.toIntOrNull()
+
+            val isHls = href.contains(".m3u8") || text.contains("HLS", ignoreCase = true)
+
+            links.add(
+                CtgLink(
+                    seasonNumber = seasonNumber,
+                    episodeNumber = episodeNumber,
+                    source = a.select("source").attr("type").ifEmpty { "default" },
+                    quality = quality,
+                    hlsUrl = if (isHls) href else null,
+                    url = if (!isHls) href else null
+                )
+            )
+        }
+    }
+
+    doc.select("source[src]").forEach { source ->
+        val src = source.attr("src")
+        val type = source.attr("type")
+        val parent = source.parent()
+
+        if (src.isNotBlank()) {
+            val text = parent?.text() ?: ""
+            val quality = when {
+                text.contains("1080p", ignoreCase = true) -> "1080p"
+                text.contains("720p", ignoreCase = true) -> "720p"
+                text.contains("480p", ignoreCase = true) -> "480p"
+                else -> null
+            }
+
+            val isHls = type.contains("hls") || src.contains(".m3u8")
+
+            links.add(
+                CtgLink(
+                    source = type.ifEmpty { "default" },
+                    quality = quality,
+                    hlsUrl = if (isHls) src else null,
+                    url = if (!isHls) src else null
+                )
+            )
+        }
+    }
+
+    return links.distinctBy { it.hlsUrl ?: it.url }
+}
