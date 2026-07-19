@@ -15,5 +15,6 @@ AGENTS.md
 SYNC_STATE.md
 PENDING_FEATURES.md
 build.log
+build.ps1
 .cbbase-memory/
 codebase-memory-mcp*
