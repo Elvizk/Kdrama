@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.konan.properties.Properties
 import java.io.FileInputStream
 
-version = 477
+version = 478
 
 cloudstream {
     language = "en"
@@ -26,10 +26,12 @@ android {
             buildConfigField("String", "TMDB_KEY", "\"${properties.getProperty("TMDB_KEY", "")}\"")
             buildConfigField("String", "TRAKT_CLIENT_ID", "\"${properties.getProperty("TRAKT_CLIENT_ID", "")}\"")
             buildConfigField("String", "CC_COOKIE", "\"${properties.getProperty("CC_COOKIE", "")}\"")
+            buildConfigField("String", "MDBLIST_API_KEY", "\"${properties.getProperty("MDBLIST_API_KEY", "")}\"")
         } catch (_: Exception) {
             buildConfigField("String", "TMDB_KEY", "\"\"")
             buildConfigField("String", "TRAKT_CLIENT_ID", "\"\"")
             buildConfigField("String", "CC_COOKIE", "\"\"")
+            buildConfigField("String", "MDBLIST_API_KEY", "\"\"")
         }
     }
 }

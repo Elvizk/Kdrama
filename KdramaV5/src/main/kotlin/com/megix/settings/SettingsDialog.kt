@@ -97,6 +97,8 @@ internal object SettingsDialog {
                         key == Settings.WYZIE_SUBS_KEY    && value is String -> Settings.saveWyzieSubsKey(value)
                         key == Settings.GRAMCINEMA_TOKEN_KEY && value == null   -> Settings.clearGramCinemaToken()
                         key == Settings.GRAMCINEMA_TOKEN_KEY && value is String -> Settings.saveGramCinemaToken(value)
+                        key == Settings.MDBLIST_API_KEY_KEY   && value == null   -> Settings.clearMdblistApiKey()
+                        key == Settings.MDBLIST_API_KEY_KEY   && value is String -> Settings.saveMdblistApiKey(value)
                         value is Boolean                                     -> com.lagradost.cloudstream3.CloudStreamApp.setKey(key, value)
                         value is Int                                         -> com.lagradost.cloudstream3.CloudStreamApp.setKey(key, value)
                         value == null                                        -> com.lagradost.cloudstream3.CloudStreamApp.setKey(key, null as String?)
@@ -498,14 +500,63 @@ internal object SettingsDialog {
             loginType     = SettingsWebView.LoginType.GRAMCINEMA
         ))
 
+        // ── Divider before MDbList ───────────────────────────────
+        content.addView(SettingsWidgets.divider(context).apply {
+            (layoutParams as? LinearLayout.LayoutParams)
+                ?.setMargins(0, 12.dp(context), 0, 12.dp(context))
+        })
+
+        // ── MDbList section header ────────────────────────────────
+        val MDBLIST_ACCENT = Color.parseColor("#22D3EE")
+        val MDBLIST_BG     = Color.parseColor("#0A1520")
+        val MDBLIST_BORDER = Color.parseColor("#1E3A4A")
+        content.addView(LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity     = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = 6.dp(context) }
+
+            addView(TextView(context).apply {
+                text = "📋  MDbList API Key"
+                textSize = 13f; setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(theme.TEXT_PRIMARY)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            addView(SettingsWidgets.pillBtn(context, "🔑 Get Key", MDBLIST_ACCENT, MDBLIST_BG, MDBLIST_BORDER) {
+                try {
+                    context.startActivity(android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://mdblist.com/preferences/#api")
+                    ))
+                } catch (_: Exception) {
+                    Toast.makeText(context, "https://mdblist.com/preferences/#api", Toast.LENGTH_LONG).show()
+                }
+            })
+        })
+
+        // ── MDbList API key input ────────────────────────────────
+        content.addView(buildTokenSection(
+            labelText     = "Enter your MDbList API key for curated Kdrama/Movie lists",
+            hint          = "Paste API key",
+            pendingKey    = Settings.MDBLIST_API_KEY_KEY,
+            getCurrent    = Settings::getMdblistApiKey,
+            sectionAccent = MDBLIST_ACCENT,
+            sectionBg     = MDBLIST_BG,
+            sectionBorder = MDBLIST_BORDER,
+            clipLabel     = "MDbList API Key"
+        ))
+
         // ── Card header (badge reflects whichever token was last staged) ──
         fun anyBadgeText() = when {
             (pending[Settings.SHOWBOX_TOKEN_KEY]     as? String) != null ||
             (pending[Settings.WYZIE_SUBS_KEY]        as? String) != null ||
-            (pending[Settings.GRAMCINEMA_TOKEN_KEY]  as? String) != null -> "✓ Staged"
+            (pending[Settings.GRAMCINEMA_TOKEN_KEY]  as? String) != null ||
+            (pending[Settings.MDBLIST_API_KEY_KEY]   as? String) != null -> "✓ Staged"
             Settings.getShowboxToken()    != null ||
             Settings.getWyzieSubsKey()    != null ||
-            Settings.getGramCinemaToken() != null -> "✓ Saved"
+            Settings.getGramCinemaToken() != null ||
+            Settings.getMdblistApiKey()   != null -> "✓ Saved"
             else -> ""
         }
 

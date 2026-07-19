@@ -33,71 +33,80 @@ class CineTmdbProvider: MainAPI() {
     companion object {
         private val apiKey = BuildConfig.TMDB_KEY
         private val traktClientId = BuildConfig.TRAKT_CLIENT_ID
+        private val mdblistApiKey = BuildConfig.MDBLIST_API_KEY
     }
 
     override val mainPage = mainPageOf(
-        // === Latest from Trakt (snoak curated list) ===
-        "trakt/users/snoak/lists/latest-kdrama-shows/items/shows" to "Latest Kdrama",
-        // === Korean Drama ===
+        // === MDbList curated lists ===
+        "mdblist/snoak/latest-kdrama-shows/items/show" to "Latest Kdrama",
+        // === Korean Drama (TMDB discover) ===
         "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=primary_release_date.desc" to "Korean Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Korean Drama - Top Rated",
-        // === Chinese Drama ===
+        // === Chinese Drama (TMDB discover) ===
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=primary_release_date.desc" to "Chinese Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Chinese Drama - Top Rated",
-        // === Movies ===
-        "trakt/users/an-kah/lists/popular-korean-movies/items/movies" to "Korean Movies",
-        "trakt/users/thedeterminist8/lists/chinese-movies/items/movies" to "Chinese Movies",
+        // === Movies from MDbList ===
+        "mdblist/an-kah/popular-korean-movies/items/movie" to "Korean Movies",
+        "mdblist/thedeterminist8/chinese-movies/items/movie" to "Chinese Movies",
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        // === Trakt branch ===
-        if (request.data.contains("trakt")) {
-            val headers = mapOf(
-                "Content-Type" to "application/json",
-                "trakt-api-version" to "2",
-                "trakt-api-key" to traktClientId
-            )
-            val json = app.get(
-                "https://api.trakt.tv/${request.data.removePrefix("trakt/")}?page=$page&limit=50",
-                headers = headers,
+        // === MDbList branch ===
+        if (request.data.startsWith("mdblist/")) {
+            val path = request.data.removePrefix("mdblist/")
+            val parts = path.split("/")
+            val username  = parts[0]
+            val listName  = parts[1]
+            val mediaType = parts[3]
+
+            val offset = (page - 1) * 50
+
+            val response = app.get(
+                "https://api.mdblist.com/lists/$username/$listName/items/$mediaType" +
+                    "?limit=50&offset=$offset&append_to_response=poster&apikey=$mdblistApiKey",
                 timeout = 15000
-            ).text
+            )
 
-            val items = tryParseJson<ArrayList<TraktItem>>(json)
-                ?: throw ErrorLoadingException("Invalid Trakt response")
-
-            val home = coroutineScope {
-                items.mapNotNull { item ->
-                    async {
-                        val media = item.show ?: item.movie ?: return@async null
-                        val tmdbId = media.ids?.tmdb ?: return@async null
-                        val title = media.title ?: return@async null
-                        val traktType = item.type ?: return@async null
-                        val tmdbEndpoint = if (traktType == "movie") "movie" else "tv"
-
-                        // Filter adult content only for Chinese Movies
-                        val isChineseMovies = request.data.contains("chinese-movies")
-
-                        val posterUrl = try {
-                            val detail = app.get(
-                                "$apiUrl/$tmdbEndpoint/$tmdbId?api_key=$apiKey"
-                            ).parsedSafe<TraktTmdbLookup>()
-
-                            if (isChineseMovies && detail?.adult == true) return@async null
-
-                            if (detail?.posterPath != null) "https://image.tmdb.org/t/p/w500${detail.posterPath}" else null
-                        } catch (_: Exception) { null }
-
-                        newMovieSearchResponse(
-                            title,
-                            Data(id = tmdbId, type = tmdbEndpoint).toJson(),
-                            if (traktType == "movie") TvType.Movie else TvType.TvSeries
-                        ) {
-                            this.posterUrl = posterUrl
-                        }
-                    }
-                }.awaitAll().filterNotNull()
+            // Rate limit validation
+            val remaining = response.headers["X-RateLimit-Remaining"]?.toIntOrNull()
+            if (remaining != null && remaining <= 0) {
+                Log.w("CineTmdb", "MDbList rate limit reached: $remaining remaining")
+                return newHomePageResponse(request.name, emptyList())
             }
+
+            if (response.code == 429) {
+                Log.w("CineTmdb", "MDbList HTTP 429: Rate limit exceeded")
+                return newHomePageResponse(request.name, emptyList())
+            }
+
+            if (response.code != 200) {
+                throw ErrorLoadingException("MDbList API error: ${response.code}")
+            }
+
+            val json = response.text
+            val mdbResponse = tryParseJson<MDbListResponse>(json)
+                ?: throw ErrorLoadingException("Invalid MDbList response")
+
+            val items = if (mediaType == "movie") mdbResponse.movies else mdbResponse.shows
+
+            val home = items?.mapNotNull { item ->
+                val tmdbId = item.ids?.tmdb ?: return@mapNotNull null
+                val title = item.title ?: return@mapNotNull null
+
+                // Adult content filter for Chinese Movies
+                val isChineseMovies = request.data.contains("chinese-movies")
+                if (isChineseMovies && item.adult == 1) return@mapNotNull null
+
+                val tvType = if (mediaType == "movie") TvType.Movie else TvType.TvSeries
+
+                newMovieSearchResponse(
+                    title,
+                    Data(id = tmdbId, type = mediaType).toJson(),
+                    tvType
+                ) {
+                    this.posterUrl = item.poster
+                }
+            } ?: emptyList()
 
             return newHomePageResponse(request.name, home)
         }
@@ -435,6 +444,27 @@ class CineTmdbProvider: MainAPI() {
     data class TraktTmdbLookup(
         @param:JsonProperty("poster_path") val posterPath: String? = null,
         @param:JsonProperty("adult") val adult: Boolean? = null,
+    )
+
+    data class MDbListItem(
+        @param:JsonProperty("id") val id: Int? = null,
+        @param:JsonProperty("rank") val rank: Int? = null,
+        @param:JsonProperty("adult") val adult: Int? = null,
+        @param:JsonProperty("title") val title: String? = null,
+        @param:JsonProperty("ids") val ids: MDbListIds? = null,
+        @param:JsonProperty("mediatype") val mediatype: String? = null,
+        @param:JsonProperty("release_year") val releaseYear: Int? = null,
+        @param:JsonProperty("poster") val poster: String? = null,
+    )
+
+    data class MDbListIds(
+        @param:JsonProperty("tmdb") val tmdb: Int? = null,
+        @param:JsonProperty("imdb") val imdb: String? = null,
+    )
+
+    data class MDbListResponse(
+        @param:JsonProperty("movies") val movies: ArrayList<MDbListItem>? = arrayListOf(),
+        @param:JsonProperty("shows") val shows: ArrayList<MDbListItem>? = arrayListOf(),
     )
 
     data class Genres(

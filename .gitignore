@@ -12,3 +12,8 @@ local.properties
 .vscode
 backups/
 AGENTS.md
+SYNC_STATE.md
+PENDING_FEATURES.md
+build.log
+.cbbase-memory/
+codebase-memory-mcp*
