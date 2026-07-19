@@ -1232,6 +1232,10 @@ class Bibiemb: VibePlayer() {
     override val mainUrl = "https://bibiemb.xyz"
 }
 
+class Vivibebe: VibePlayer() {
+    override val mainUrl = "https://vivibebe.site"
+}
+
 open class VibePlayer : ExtractorApi() {
     override val name = "VibePlayer"
     override val mainUrl = "https://vibeplayer.site"

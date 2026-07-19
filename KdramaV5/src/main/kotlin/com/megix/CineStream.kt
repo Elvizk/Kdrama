@@ -57,6 +57,7 @@ open class CineStream: Plugin() {
         registerExtractorAPI(MegaPlay())
         registerExtractorAPI(Vidtube())
         registerExtractorAPI(Vidwish())
+        registerExtractorAPI(Vivibebe())
 
         this.openSettings = { ctx: Context ->
             Settings.showSettingsDialog(ctx) {
