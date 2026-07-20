@@ -98,10 +98,11 @@ class CineTmdbProvider: MainAPI() {
                 if (isChineseMovies && item.adult == 1) return@mapNotNull null
 
                 val tvType = if (mediaType == "movie") TvType.Movie else TvType.TvSeries
+                val normalizedType = if (mediaType == "movie") "movie" else "tv"
 
                 newMovieSearchResponse(
                     title,
-                    Data(id = tmdbId, type = mediaType).toJson(),
+                    Data(id = tmdbId, type = normalizedType).toJson(),
                     tvType
                 ) {
                     this.posterUrl = item.poster
