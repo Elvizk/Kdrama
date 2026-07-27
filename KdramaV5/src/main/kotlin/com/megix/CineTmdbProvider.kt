@@ -145,6 +145,8 @@ class CineTmdbProvider: MainAPI() {
                         val runtime = detail?.episode_run_time?.firstOrNull() ?: 0
                         if (runtime > 0 && runtime < 30) return@async null
                         if (runtime == 0 && detail?.overview.isNullOrBlank()) return@async null
+                        val numEps = detail?.number_of_episodes ?: 0
+                        if (numEps in 1..2) return@async null
                         media.toSearchResponse("tv")
                     }
                 }.awaitAll().filterNotNull()
@@ -608,6 +610,7 @@ class CineTmdbProvider: MainAPI() {
         @param:JsonProperty("recommendations") val recommendations: ResultsRecommendations? = null,
         @param:JsonProperty("alternative_titles") val alternative_titles: ResultsAltTitles? = null,
         @param:JsonProperty("episode_run_time") val episode_run_time: ArrayList<Int>? = arrayListOf(),
+        @param:JsonProperty("number_of_episodes") val number_of_episodes: Int? = null,
         @param:JsonProperty("production_countries") val production_countries: ArrayList<ProductionCountries>? = arrayListOf(),
         @param:JsonProperty("content_ratings") val contentRatings: ContentRatings? = null,
         @param:JsonProperty("release_dates") val releaseDates: ReleaseDates? = null
