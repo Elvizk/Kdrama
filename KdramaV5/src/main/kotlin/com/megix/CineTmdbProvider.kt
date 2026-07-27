@@ -131,15 +131,26 @@ class CineTmdbProvider: MainAPI() {
                     "&first_air_date.lte=$today" +
                     "&first_air_date.gte=$twoMonthsAgo" +
                     "&sort_by=first_air_date.desc" +
-                    "&with_runtime.gte=30" +
                     "&without_keywords=190370|13059|226161|195669" +
                     "&page=$page",
                 timeout = 10000
             ).text
 
-            val home = tryParseJson<Results>(json)?.results?.mapNotNull { media ->
-                media.toSearchResponse("tv")
-            } ?: throw ErrorLoadingException("Invalid Json response")
+            val rawResults = tryParseJson<Results>(json)?.results
+                ?: throw ErrorLoadingException("Invalid Json response")
+
+            val home = coroutineScope {
+                rawResults.map { media ->
+                    async {
+                        val detail = app.get(
+                            "$apiUrl/tv/${media.id}?api_key=$apiKey",
+                            timeout = 3000
+                        ).parsedSafe<MediaDetail>()
+                        val runtime = detail?.episode_run_time?.firstOrNull() ?: 0
+                        if (runtime == 0 || runtime >= 30) media.toSearchResponse("tv") else null
+                    }
+                }.awaitAll().filterNotNull()
+            }
 
             return newHomePageResponse(request.name, home)
         }
@@ -598,6 +609,7 @@ class CineTmdbProvider: MainAPI() {
         @param:JsonProperty("credits") val credits: Credits? = null,
         @param:JsonProperty("recommendations") val recommendations: ResultsRecommendations? = null,
         @param:JsonProperty("alternative_titles") val alternative_titles: ResultsAltTitles? = null,
+        @param:JsonProperty("episode_run_time") val episode_run_time: ArrayList<Int>? = arrayListOf(),
         @param:JsonProperty("production_countries") val production_countries: ArrayList<ProductionCountries>? = arrayListOf(),
         @param:JsonProperty("content_ratings") val contentRatings: ContentRatings? = null,
         @param:JsonProperty("release_dates") val releaseDates: ReleaseDates? = null
