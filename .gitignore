@@ -14,6 +14,7 @@ backups/
 AGENTS.md
 SYNC_STATE.md
 PENDING_FEATURES.md
+BUG_LOG.md
 build.log
 build.gradle.tmp.log
 build.ps1
