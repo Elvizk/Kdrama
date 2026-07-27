@@ -14,6 +14,9 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.megix.CineStreamExtractors.invokeAllSources
 import com.megix.CineStreamExtractors.invokeAnimes
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class CineTmdbProvider: MainAPI() {
     override var name = "Kdrama TMDB"
@@ -112,13 +115,17 @@ class CineTmdbProvider: MainAPI() {
             return newHomePageResponse(request.name, home)
         }
 
-        // === Latest Kdrama branch (TMDB discover - no date filter) ===
+        // === Latest Kdrama branch (TMDB discover - today or earlier) ===
         if (request.data == "latest-kdrama") {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val today = dateFormat.format(Date())
+
             val json = app.get(
                 "$apiUrl/discover/tv?api_key=$apiKey" +
                     "&with_original_language=ko" +
                     "&without_genres=10764,10763,10767" +
                     "&with_genres=18" +
+                    "&first_air_date.lte=$today" +
                     "&sort_by=first_air_date.desc" +
                     "&without_keywords=190370|13059|226161|195669" +
                     "&page=$page",
