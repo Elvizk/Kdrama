@@ -147,7 +147,9 @@ class CineTmdbProvider: MainAPI() {
                             timeout = 3000
                         ).parsedSafe<MediaDetail>()
                         val runtime = detail?.episode_run_time?.firstOrNull() ?: 0
-                        if (runtime == 0 || runtime >= 30) media.toSearchResponse("tv") else null
+                        if (runtime > 0 && runtime < 30) return@async null
+                        if (runtime == 0 && detail?.overview.isNullOrBlank()) return@async null
+                        media.toSearchResponse("tv")
                     }
                 }.awaitAll().filterNotNull()
             }
