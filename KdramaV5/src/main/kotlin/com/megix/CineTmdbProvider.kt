@@ -14,10 +14,6 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.megix.CineStreamExtractors.invokeAllSources
 import com.megix.CineStreamExtractors.invokeAnimes
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 class CineTmdbProvider: MainAPI() {
     override var name = "Kdrama TMDB"
@@ -44,10 +40,10 @@ class CineTmdbProvider: MainAPI() {
         // === MDbList curated lists ===
         "latest-kdrama" to "Latest Kdrama",
         // === Korean Drama (TMDB discover) ===
-        "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=first_air_date.desc" to "Korean Drama - Recent",
+        "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=primary_release_date.desc" to "Korean Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=ko&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Korean Drama - Top Rated",
         // === Chinese Drama (TMDB discover) ===
-        "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=first_air_date.desc" to "Chinese Drama - Recent",
+        "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=primary_release_date.desc" to "Chinese Drama - Recent",
         "discover/tv?api_key=$apiKey&with_original_language=zh&with_genres=18&sort_by=vote_average.desc&vote_count.gte=200" to "Chinese Drama - Top Rated",
         // === Movies from MDbList ===
         "mdblist/an-kah/popular-korean-movies/items/movie" to "Korean Movies",
@@ -116,20 +112,13 @@ class CineTmdbProvider: MainAPI() {
             return newHomePageResponse(request.name, home)
         }
 
-        // === Latest Kdrama branch (TMDB discover with date filter) ===
+        // === Latest Kdrama branch (TMDB discover - no date filter) ===
         if (request.data == "latest-kdrama") {
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val today = dateFormat.format(Date())
-            val cal = Calendar.getInstance().apply { add(Calendar.MONTH, -2) }
-            val twoMonthsAgo = dateFormat.format(cal.time)
-
             val json = app.get(
                 "$apiUrl/discover/tv?api_key=$apiKey" +
                     "&with_original_language=ko" +
                     "&without_genres=10764,10763,10767" +
                     "&with_genres=18" +
-                    "&first_air_date.lte=$today" +
-                    "&first_air_date.gte=$twoMonthsAgo" +
                     "&sort_by=first_air_date.desc" +
                     "&without_keywords=190370|13059|226161|195669" +
                     "&page=$page",
