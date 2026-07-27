@@ -40,6 +40,7 @@ Antes de hacer bump + push, verificar cada punto:
 - **Causa:** GitHub Actions en forks requiere Settings > Actions > General > "Allow all actions"
 - **Workaround:** `gh workflow run Build --ref master` manual tras cada push
 - **Regla:** Verificar CI tras primer push de la sesión. Si no es `"push"`, trigger manual
+- **Nota 2026-07-27:** Además, `gh` apuntaba al upstream en lugar del fork (ver lección 7)
 
 ### 5. Deploy manual vs automático a builds branch
 - **Síntoma:** Código nuevo en master pero Cloudstream no lo refleja
@@ -52,3 +53,15 @@ Antes de hacer bump + push, verificar cada punto:
 - **Causa:** Cloudstream cachea search responses + show data localmente
 - **Workaround:** Pull-to-refresh en categoría; forzar detención de app; reinstalar plugin si persiste
 - **Regla:** Tras cambiar formato de datos, informar al usuario que debe refrescar
+
+### 7. `gh` CLI sin default repo apunta al upstream
+- **Síntoma:** `gh run list` mostraba runs de `SaurabhKaperwan/CSX`; `gh workflow run` daba 403
+- **Causa:** `gh` no tenía default repo configurado, infería el primer remote (`upstream`)
+- **Fix:** `gh repo set-default Elvizk/Kdrama`
+- **Regla:** Al inicio de cada sesión, verificar `gh repo set-default --view`
+
+### 8. Gradle daemon cold start sin feedback visual
+- **Síntoma:** Tool parece "pensando indefinidamente" en primer build del día
+- **Causa:** Daemon cold start tarda ~15min sin output apreciable (cache config, compilation)
+- **Fix:** Antes del primer build del día, verificar daemon con `./gradlew --status`. Si está frío, informar al usuario: "Cold start ~15min"
+- **Regla:** No asumir build colgado; verificar daemon primero
