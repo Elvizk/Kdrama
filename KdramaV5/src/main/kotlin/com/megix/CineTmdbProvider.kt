@@ -131,6 +131,7 @@ class CineTmdbProvider: MainAPI() {
                     "&first_air_date.lte=$today" +
                     "&first_air_date.gte=$twoMonthsAgo" +
                     "&sort_by=first_air_date.desc" +
+                    "&with_runtime.gte=30" +
                     "&without_keywords=190370|13059|226161|195669" +
                     "&page=$page",
                 timeout = 10000
