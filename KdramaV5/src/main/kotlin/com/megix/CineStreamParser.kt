@@ -1137,3 +1137,41 @@ data class CtgLink(
     val hlsUrl: String? = null,
     val url: String? = null
 )
+
+// ── MyDramaList API ──────────────────────────────────────────────
+data class MyDramaLatestResponse(
+    val updated_at: String? = null,
+    val source: String? = null,
+    val total: Int? = null,
+    val page: Int? = null,
+    val per_page: Int? = null,
+    val total_pages: Int? = null,
+    val has_next: Boolean? = null,
+    val results: List<MyDramaItem>? = null
+)
+
+data class MyDramaItem(
+    val id: Int? = null,
+    val name: String? = null,
+    val original_name: String? = null,
+    val overview: String? = null,
+    val first_air_date: String? = null,
+    val number_of_episodes: Int? = null,
+    val episode_run_time: Int? = null,
+    val poster_path: String? = null,
+    val backdrop_path: String? = null,
+    val origin_country: List<String>? = null,
+    val country: String? = null,
+    val mdl_rating: Double? = null,
+    val network: String? = null,
+    val tags: List<String>? = null,
+    val native_title: String? = null,
+    val source: String? = null
+)
+
+data class MyDramaErrorResponse(
+    val error: Boolean? = null,
+    val code: String? = null,
+    val message: String? = null,
+    val retry_after: Int? = null
+)

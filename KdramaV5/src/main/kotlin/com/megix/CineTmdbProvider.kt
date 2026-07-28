@@ -7,16 +7,10 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.megix.CineStreamExtractors.invokeAllSources
 import com.megix.CineStreamExtractors.invokeAnimes
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class CineTmdbProvider: MainAPI() {
     override var name = "Kdrama TMDB"
@@ -115,42 +109,37 @@ class CineTmdbProvider: MainAPI() {
             return newHomePageResponse(request.name, home)
         }
 
-        // === Latest Kdrama branch (TMDB discover - today or earlier) ===
+        // === Latest Kdrama branch (MyDramaList API) ===
         if (request.data == "latest-kdrama") {
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val today = dateFormat.format(Date())
-
             val json = app.get(
-                "$apiUrl/discover/tv?api_key=$apiKey" +
-                    "&with_original_language=ko" +
-                    "&without_genres=10764,10763,10767" +
-                    "&with_genres=18" +
-                    "&first_air_date.lte=$today" +
-                    "&sort_by=first_air_date.desc" +
-                    "&without_keywords=190370|13059|226161|195669" +
-                    "&page=$page",
-                timeout = 10000
+                "$mydramaAPI/api/kdramas/latest?page=$page&per_page=100",
+                headers = mapOf("x-api-key" to mydramaApiKey),
+                timeout = 15000
             ).text
 
-            val rawResults = tryParseJson<Results>(json)?.results
-                ?: throw ErrorLoadingException("Invalid Json response")
-
-            val home = coroutineScope {
-                rawResults.map { media ->
-                    async {
-                        val detail = app.get(
-                            "$apiUrl/tv/${media.id}?api_key=$apiKey",
-                            timeout = 3000
-                        ).parsedSafe<MediaDetail>()
-                        val runtime = detail?.episode_run_time?.firstOrNull() ?: 0
-                        if (runtime > 0 && runtime < 30) return@async null
-                        if (runtime == 0 && detail?.overview.isNullOrBlank()) return@async null
-                        val numEps = detail?.number_of_episodes ?: 0
-                        if (numEps in 1..2) return@async null
-                        media.toSearchResponse("tv")
-                    }
-                }.awaitAll().filterNotNull()
+            val errorResp = tryParseJson<MyDramaErrorResponse>(json)
+            if (errorResp?.error == true) {
+                val msg = errorResp.message ?: "Unknown error"
+                val retry = errorResp.retry_after ?: 30
+                throw ErrorLoadingException("$msg (retry in ${retry}s)")
             }
+
+            val response = tryParseJson<MyDramaLatestResponse>(json)
+                ?: throw ErrorLoadingException("Invalid MyDramaList response")
+
+            val home = response.results?.mapNotNull { item ->
+                val tmdbId = item.id ?: return@mapNotNull null
+                val title = item.name ?: return@mapNotNull null
+
+                newMovieSearchResponse(
+                    title,
+                    Data(id = tmdbId, type = "tv").toJson(),
+                    TvType.TvSeries
+                ) {
+                    this.posterUrl = item.poster_path?.let { "https://image.tmdb.org/t/p/w342$it" }
+                    this.score = item.mdl_rating?.let { Score.from10(it) }
+                }
+            } ?: emptyList()
 
             return newHomePageResponse(request.name, home)
         }

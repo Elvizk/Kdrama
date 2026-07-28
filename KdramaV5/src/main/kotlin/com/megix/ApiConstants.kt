@@ -65,6 +65,8 @@ const val anikageAPI = "https://anikage.cc"
 const val hdGharTvAPI = "https://hdghartv.cc"
 const val vidupAPI = "https://vidup.to"
 const val ctgMoviesBaseAPI = "https://ctgmovies.com"
+const val mydramaAPI = "https://mydramalist-vanced.onrender.com"
+const val mydramaApiKey = "mydrama_live_qszvyQxAGeLu4lWWWUgp-3Dth1pvEMYipV4QG6cKIww"
 
 // ── 2. Dynamic API Config ────────────────────────────────────
 // Loaded once via init() called from CineStream.load()
