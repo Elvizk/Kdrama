@@ -128,7 +128,7 @@ class CineTmdbProvider: MainAPI() {
                 ?: throw ErrorLoadingException("Invalid MyDramaList response")
 
             val home = response.results?.mapNotNull { item ->
-                val tmdbId = item.id ?: return@mapNotNull null
+                val tmdbId = item.tmdbId ?: return@mapNotNull null
                 val title = item.name ?: return@mapNotNull null
 
                 newMovieSearchResponse(

@@ -1151,13 +1151,13 @@ data class MyDramaLatestResponse(
 )
 
 data class MyDramaItem(
-    val id: Int? = null,
+    @param:JsonProperty("tmdb_id") val tmdbId: Int? = null,
     val name: String? = null,
     val original_name: String? = null,
     val overview: String? = null,
     val first_air_date: String? = null,
     val number_of_episodes: Int? = null,
-    val episode_run_time: Int? = null,
+    val episode_run_time: String? = null,
     val poster_path: String? = null,
     val backdrop_path: String? = null,
     val origin_country: List<String>? = null,
