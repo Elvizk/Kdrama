@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.konan.properties.Properties
 import java.io.FileInputStream
 
-version = 489
+version = 492
 
 cloudstream {
     language = "en"

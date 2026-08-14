@@ -833,7 +833,7 @@ object CineStreamExtractors {
                 ).filterValues { it.isNotBlank() }
             })
 
-            s.subtitles?.forEach { subtitleCallback(newSubtitleFile(getLanguage(it.lang) ?: it.lang, it.url)) }
+            s.subtitles?.forEach { mySubtitleCallback(it.lang, it.url, subtitleCallback) }
         }
     }
 
@@ -976,12 +976,7 @@ object CineStreamExtractors {
                     val source = obj.getString("url")
                     val language = obj.getString("language")
 
-                    subtitleCallback.invoke(
-                        newSubtitleFile(
-                            getLanguage(language) ?: language,
-                            source
-                        )
-                    )
+                    mySubtitleCallback(language, source, subtitleCallback)
                 }
             }
         }
@@ -1257,12 +1252,7 @@ object CineStreamExtractors {
                     val lang = it.lang ?: it.lang_code
                     val fileUrl = it.url
                     if(lang != null && fileUrl != null) {
-                        subtitleCallback.invoke(
-                            newSubtitleFile(
-                                getLanguage(lang) ?: lang,
-                                fileUrl,
-                            )
-                        )
+                        mySubtitleCallback(lang, fileUrl, subtitleCallback)
                     }
                 }
             } catch (e: Exception) {
@@ -1698,7 +1688,7 @@ object CineStreamExtractors {
         if (subResponse.code != 200) return
 
         tryParseJson<List<KisskhSubtitle>>(subResponse.text)?.forEach { sub ->
-            subtitleCallback.invoke(newSubtitleFile(getLanguage(sub.label) ?: return@forEach, sub.src ?: return@forEach))
+            mySubtitleCallback(sub.label ?: return@forEach, sub.src ?: return@forEach, subtitleCallback)
         }
     }
 
@@ -2432,12 +2422,7 @@ object CineStreamExtractors {
 
         data.forEach {
             val lang = it.display ?: it.language
-            subtitleCallback.invoke(
-                newSubtitleFile(
-                    getLanguage(lang) ?: return@forEach,
-                    it.url
-                )
-            )
+            mySubtitleCallback(lang ?: return@forEach, it.url, subtitleCallback)
         }
     }
 
@@ -2787,12 +2772,7 @@ object CineStreamExtractors {
         val document = app.get("$link/$episode").document
 
         val subtitles = document.select("track").map {
-            subtitleCallback.invoke(
-                newSubtitleFile(
-                    getLanguage(it.attr("label")) ?: it.attr("label"),
-                    it.attr("src")
-                )
-            )
+            mySubtitleCallback(it.attr("label"), it.attr("src"), subtitleCallback)
         }
 
         val source = document.select("media-player").attr("src")
@@ -2954,7 +2934,7 @@ object CineStreamExtractors {
                                         server.subtitles?.forEach { sub ->
                                             val lang = SubtitleHelper.fromTagToEnglishLanguageName(sub.lang ?: "") ?: sub.lang.orEmpty()
                                             val src = sub.src ?: return@forEach
-                                            subtitleCallback(newSubtitleFile(getLanguage(lang) ?: "", httpsify(src)))
+                                            mySubtitleCallback(lang, httpsify(src), subtitleCallback)
                                         }
                                     }
                                 }
@@ -3416,9 +3396,7 @@ object CineStreamExtractors {
                     val slink = s.optString("url")
                     if (slink.isNotEmpty()) {
                         val lan = s.optString("lan")
-                        subtitleCallback.invoke(
-                            newSubtitleFile(getLanguage(lan) ?: lan, slink)
-                        )
+                        mySubtitleCallback(lan, slink, subtitleCallback)
                     }
                 }
             }
@@ -3509,12 +3487,7 @@ object CineStreamExtractors {
             val lang = it.lang ?: it.lang_code
             val fileUrl = it.url
             if(lang != null && fileUrl != null) {
-                subtitleCallback.invoke(
-                    newSubtitleFile(
-                        getLanguage(lang) ?: lang,
-                        fileUrl,
-                    )
-                )
+                mySubtitleCallback(lang, fileUrl, subtitleCallback)
             }
         }
     }
@@ -3796,12 +3769,7 @@ object CineStreamExtractors {
 
             streamData.tracks?.forEach { track ->
                 if (track.file != null && track.label != null) {
-                    subtitleCallback.invoke(
-                        newSubtitleFile(
-                            getLanguage(track.label) ?: track.label,
-                            track.file
-                        )
-                    )
+                    mySubtitleCallback(track.label, track.file, subtitleCallback)
                 }
             }
 
@@ -3895,12 +3863,7 @@ object CineStreamExtractors {
             ).forEach(callback)
 
             decryptedStream.tracks?.forEach { track ->
-                subtitleCallback.invoke(
-                    newSubtitleFile(
-                        getLanguage(track.label) ?: track.label,
-                        track.file
-                    )
-                )
+                mySubtitleCallback(track.label, track.file, subtitleCallback)
             }
         }
 
@@ -4468,7 +4431,7 @@ object CineStreamExtractors {
             val stream = decResult.stream?.firstOrNull() ?: return@safeAmap
 
             stream.captions?.forEach { caption ->
-                subtitleCallback.invoke(newSubtitleFile(getLanguage(caption.language) ?: "Unknown", caption.url))
+                mySubtitleCallback(caption.language, caption.url, subtitleCallback)
             }
 
             when (stream.type) {

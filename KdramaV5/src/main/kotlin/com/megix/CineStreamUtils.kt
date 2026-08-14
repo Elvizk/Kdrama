@@ -320,6 +320,20 @@ fun getLanguage(language: String?): String? {
     return tag
 }
 
+suspend fun mySubtitleCallback(
+    lang: String? = null,
+    url: String,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    source: String? = null,
+) {
+    subtitleCallback.invoke(
+        newSubtitleFile(
+            getLanguage(lang) ?: lang ?: "Unknown",
+            url
+        )
+    )
+}
+
 fun String.getHost(): String {
     return fixTitle(URI(this).host.substringBeforeLast(".").substringAfterLast("."))
 }
@@ -1235,12 +1249,7 @@ suspend fun getGojoStreams(
             val url = item.optString("url").takeIf { it.isNotEmpty() } ?: continue
             val lang = item.optString("lang").takeIf { it.isNotEmpty() } ?: continue
 
-            subtitleCallback.invoke(
-                newSubtitleFile(
-                    getLanguage(lang) ?: lang,
-                    url
-                )
-            )
+            mySubtitleCallback(lang, url, subtitleCallback)
         }
     } catch (e: Exception) {
         println("Error parsing Gojo streams for $provider [$lang]: ${e.message}")

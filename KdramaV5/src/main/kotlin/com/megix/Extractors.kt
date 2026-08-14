@@ -1059,12 +1059,7 @@ class FlixCloud : ExtractorApi() {
         data.optJSONArray("subtitles")?.let { subtitles ->
             for (i in 0 until subtitles.length()) {
                 subtitles.optJSONObject(i)?.run {
-                    subtitleCallback.invoke(
-                        newSubtitleFile(
-                            getLanguage(optString("language")) ?: optString("language"),
-                            optString("url")
-                        )
-                    )
+                    mySubtitleCallback(optString("language"), optString("url"), subtitleCallback)
                 }
             }
         }
