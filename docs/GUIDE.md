@@ -44,11 +44,11 @@ Plugin de CloudStream 3 para streaming de dramas coreanos y chinos. Este archivo
 - NUNCA usar `git add -A` o `git add .`
 - En `builds` branch: agregar SOLO `KdramaV5.cs3 plugins.json` (lección 9)
 - Archivos commiteables (master): `KdramaV5/src/`, `KdramaV5/build.gradle.kts`, `gradle.properties`, `GUIDE.md`, `docs/GUIDE.md`, `docs/API.md`, `docs/integration-cloudstream.md`, `.github/`, `.gitignore`, `README.md`
-- Archivos locales ignorados: `AGENTS.md`, `docs/LECCIONES_APRENDIDAS.md`, `docs/MEJORAS_PENDIENTES.md`, `SYNC_STATE.md`, `BUG_LOG.md`, `PENDING_FEATURES.md`, `build.ps1`, `build.log`, `local.properties`, `backups/`
+- Archivos locales ignorados: `AGENTS.md`, `docs/LECCIONES_APRENDIDAS.md`, `docs/MEJORAS_PENDIENTES.md`, `SYNC_STATE.md`, `build.ps1`, `build.log`, `local.properties`, `backups/`
 
 ## .gitignore (nota)
 
-El `.gitignore` raíz ignora los archivos locales. Al migrar `BUG_LOG.md`→`docs/LECCIONES_APRENDIDAS.md` y `PENDING_FEATURES.md`→`docs/MEJORAS_PENDIENTES.md`, ambos están gitignored como archivos locales (ver sección Archivos Locales).
+El `.gitignore` raíz ignora los archivos locales. Al migrar `BUG_LOG.md`→`docs/LECCIONES_APRENDIDAS.md` y `PENDING_FEATURES.md`→`docs/MEJORAS_PENDIENTES.md` (ambos archivos viejos eliminados), los migrados están gitignored como archivos locales (ver sección Archivos Locales).
 
 ## Backups
 Cada build genera un backup en `backups/KdramaV5_v{version}.cs3`. El directorio `backups/` existe solo localmente (gitignored).
