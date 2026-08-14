@@ -43,7 +43,7 @@ Plugin de CloudStream 3 para streaming de dramas coreanos y chinos. Este archivo
 
 - NUNCA usar `git add -A` o `git add .`
 - En `builds` branch: agregar SOLO `KdramaV5.cs3 plugins.json` (lección 9)
-- Archivos commiteables (master): `KdramaV5/src/`, `KdramaV5/build.gradle.kts`, `gradle.properties`, `GUIDE.md`, `docs/GUIDE.md`, `docs/API.md`, `docs/integration-cloudstream.md`, `.github/`, `.gitignore`, `README.md`
+- Archivos commiteables (master): `KdramaV5/src/`, `KdramaV5/build.gradle.kts`, `gradle.properties`, `docs/GUIDE.md`, `docs/integration-cloudstream.md`, `.github/`, `.gitignore`, `README.md`
 - Archivos locales ignorados: `AGENTS.md`, `docs/LECCIONES_APRENDIDAS.md`, `docs/MEJORAS_PENDIENTES.md`, `SYNC_STATE.md`, `build.ps1`, `build.log`, `local.properties`, `backups/`
 
 ## .gitignore (nota)

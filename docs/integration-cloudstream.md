@@ -24,7 +24,7 @@ GET https://mydramalist-vanced.onrender.com/api/kdramas/latest
 
 Headers: `x-api-key: <clave>` (campo `mydramaApiKey` del provider).
 
-Respuesta `results[]` (ver `docs/API.md` para el modelo completo). El provider mapea:
+Respuesta `results[]` (ver sección Architecture de AGENTS.md). El provider mapea:
 - `tmdb_id` → `Data(id = tmdbId, type = "tv")`
 - `name` → título
 - `poster_path` → `https://image.tmdb.org/t/p/w342{path}`
