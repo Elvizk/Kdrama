@@ -43,8 +43,12 @@ Plugin de CloudStream 3 para streaming de dramas coreanos y chinos. Este archivo
 
 - NUNCA usar `git add -A` o `git add .`
 - En `builds` branch: agregar SOLO `KdramaV5.cs3 plugins.json` (lección 9)
-- Archivos commiteables (master): `KdramaV5/src/`, `KdramaV5/build.gradle.kts`, `gradle.properties`, `docs/GUIDE.md`, `docs/integration-cloudstream.md`, `.github/`, `.gitignore`, `README.md`
+- Archivos commiteables (master): `KdramaV5/src/`, `KdramaV5/build.gradle.kts`, `gradle.properties`, `docs/GUIDE.md`, `docs/integration-cloudstream.md`, `.github/`, `.gitignore`, `.editorconfig`, `README.md`
 - Archivos locales ignorados: `AGENTS.md`, `docs/LECCIONES_APRENDIDAS.md`, `docs/MEJORAS_PENDIENTES.md`, `SYNC_STATE.md`, `build.ps1`, `build.log`, `local.properties`, `backups/`
+
+## Encoding (lección 13)
+
+El `.editorconfig` de la raíz fuerza `charset = utf-8` en los editores (y `utf-8-bom` para `.ps1`). Regla: nunca hacer round-trip de un archivo con `Get-Content`/`Set-Content` sin `-Encoding utf8` explícito (PS 5.1 usa ANSI/CP1252 por defecto → mojibake). Detalle en `docs/LECCIONES_APRENDIDAS.md` lección 13.
 
 ## .gitignore (nota)
 
