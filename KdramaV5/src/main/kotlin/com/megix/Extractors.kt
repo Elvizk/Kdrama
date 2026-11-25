@@ -114,8 +114,11 @@ class Gofile : ExtractorApi() {
     override val mainUrl = "https://gofile.io"
     override val requiresReferer = false
     private val mainApi = "https://api.gofile.io"
-    private val browserLanguage = "en-US"
-    private val secret = "9844d94d963d30"
+    // El token del sitio depende de estos 3 valores exactos ( UA + idioma + secret ).
+    private val browserLanguage = "en-GB"
+    private val secret = "12af056dacea0b"
+    private val userAgent =
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
 
     override suspend fun getUrl(
         url: String,
@@ -125,29 +128,27 @@ class Gofile : ExtractorApi() {
     ) {
         val id = Regex("/(?:\\?c=|d/)([\\da-zA-Z-]+)").find(url)?.groupValues?.get(1) ?: return
 
-        val websiteTokenForAccountCreation = generateWebsiteToken(USER_AGENT, "")
+        val defaultHeaders = mapOf(
+            "User-Agent" to userAgent,
+            "Referer" to "$mainUrl/",
+            "Origin" to mainUrl
+        )
 
-        val token = app.post(
-            "$mainApi/accounts",
-            headers = mapOf(
-                "X-Website-Token" to websiteTokenForAccountCreation,
-                "X-BL" to browserLanguage
-            )
-        ).parsedSafe<AccountResponse>()?.data?.token ?: return
+        val token = app.post("$mainApi/accounts", headers = defaultHeaders)
+            .parsedSafe<AccountResponse>()?.data?.token ?: return
 
-
-        val hashedToken = generateWebsiteToken(USER_AGENT, token)
+        val hashedToken = generateWebsiteToken(userAgent, token)
 
         val headers = mapOf(
             "Referer" to "$mainUrl/",
-            "User-Agent" to USER_AGENT,
+            "User-Agent" to userAgent,
             "Authorization" to "Bearer $token",
             "X-BL" to browserLanguage,
             "X-Website-Token" to hashedToken
         )
 
         val parsedResponse = app.get(
-            "$mainApi/contents/$id?cache=true&sortField=createTime&sortDirection=1",
+            "$mainApi/contents/$id?page=1&pageSize=100&sortField=name&sortDirection=1",
             headers = headers
         ).parsedSafe<GofileResponse>()
 
@@ -733,6 +734,16 @@ open class HubCloud : ExtractorApi() {
                 var redirectUrl = resolveFinalUrl(link) ?: return@safeAmap
                 if(redirectUrl.contains("link=")) redirectUrl = redirectUrl.substringAfter("link=")
                 myCallback(redirectUrl, "[Download]")
+            }
+            else if (text.contains("Buzz Server")) {
+                val redirectUrl = app.get(link).document.selectFirst(".download-btn")?.attr("href")
+                    ?.takeIf { it.isNotBlank() } ?: return@safeAmap
+                val buzzUrl = if (redirectUrl.startsWith("http")) {
+                    redirectUrl
+                } else {
+                    getBaseUrl(link) + redirectUrl
+                }
+                myCallback(buzzUrl, "[Buzz Server]")
             }
             else if (text.contains("Gofile")) loadExtractor(link, "", subtitleCallback, callback)
             else { Log.d("Error", "No Server matched") }

@@ -1896,8 +1896,12 @@ object CineStreamExtractors {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ) {
-        val url = "$skymoviesAPI/search.php?search=$title ($year)&cat=All"
-        val (sSlug, eSlug) = getEpisodeSlug(1, episode)
+        val url = "$skymoviesAPI/search.php?search=${URLEncoder.encode("$title ($year)", "UTF-8")}&cat=All"
+
+        Log.d("Skymovies", "url: $url")
+
+        // getEpisodeSlug usa episode!! -> evitar NPE cuando no hay episodio
+        val (sSlug, eSlug) = getEpisodeSlug(1, episode ?: 1)
         app.get(url).document.select("div.L a").safeAmap {
             if(!it.text().trim().startsWith("$title ($year)")) return@safeAmap
             val regex = Regex("""S\d{2}E\d{2}""", RegexOption.IGNORE_CASE)
@@ -3209,43 +3213,48 @@ object CineStreamExtractors {
 
         Log.d("Bollywood", "Response: $response")
 
-        val jsonObject = JSONObject(response)
+        val filesArray = runCatching { JSONObject(response).optJSONArray("files") }
+            .getOrNull() ?: return
 
-        if (jsonObject.has("files")) {
-            val filesArray = jsonObject.getJSONArray("files")
-
-            for (i in 0 until filesArray.length()) {
-                val item = filesArray.getJSONObject(i)
+        (0 until filesArray.length())
+            .mapNotNull { filesArray.optJSONObject(it) }
+            .filter { item ->
                 val fileName = item.optString("file_name")
-                if (fileName.contains(".$titleSlug")) continue
+                fileName.isNotBlank() && !fileName.contains(".$titleSlug")
+            }
+            .take(5)
+            .forEach { item ->
+                val fileName = item.optString("file_name")
                 val fileId = item.optString("id")
+                if (fileId.isBlank()) return@forEach
+
+                // file_size puede venir vacio/no numerico -> no debe tumbar el provider
+                val size = formatSize(item.optString("file_size").toLongOrNull() ?: 0L)
+
                 Log.d("Bollywood", "Processing file ID: $fileId")
-                val size = formatSize(item.optString("file_size").toLong())
+
                 val res = app.get(
                     "$bollywoodAPI/genLink?type=mix_media&id=$fileId",
                     headers = headers
                 ).text
-                Log.d("Bollywood", "Link response for file ID $fileId: $res")
 
-                val linkJson = JSONObject(res)
-                if (linkJson.has("url")) {
-                    val streamUrl = linkJson.optString("url")
-                    val simplifiedTitle = getSimplifiedTitle("$fileName $size")
+                val streamUrl = runCatching { JSONObject(res).optString("url") }
+                    .getOrNull()?.takeIf { it.isNotBlank() } ?: return@forEach
 
-                    callback.invoke(
-                        newExtractorLink(
-                            "GramCinema",
-                            "[GramCinema]".toSansSerifBold() + " ${simplifiedTitle}",
-                            streamUrl,
-                            ExtractorLinkType.VIDEO
-                        ) {
-                            this.quality = getIndexQuality(fileName)
-                            this.referer = bollywoodBaseAPI
-                        }
-                    )
-                }
+                val simplifiedTitle = getSimplifiedTitle("$fileName $size")
+
+                callback.invoke(
+                    newExtractorLink(
+                        "GramCinema",
+                        "[GramCinema]".toSansSerifBold() + " $simplifiedTitle",
+                        streamUrl,
+                        ExtractorLinkType.VIDEO
+                    ) {
+                        this.quality = getIndexQuality(fileName)
+                        this.referer = bollywoodBaseAPI
+                    }
+                )
             }
-        }
     }
 
     suspend fun invokeMoviebox(
@@ -3735,7 +3744,10 @@ object CineStreamExtractors {
         )
 
         val response = app.get(url, headers = headers).text
-        val encodedText = Regex("""\\"en\\":\\"(.*?)\\""").find(response)?.groupValues?.get(1) ?: return
+        // El sitio puede exponer el payload cifrado como "en" o como "token"
+        val encodedText = Regex("""\\"(?:en|token)\\":\\"(.*?)\\"""")
+            .find(response)?.groupValues?.get(1)
+            ?.takeIf { it.isNotBlank() } ?: return
         val decApiUrl = "$multiDecryptAPI/enc-vidfast?text=$encodedText"
         val decodedDataJson = app.get(decApiUrl).text
         val decodedData = tryParseJson<EncDecResponse>(decodedDataJson)?.result ?: return
@@ -3801,7 +3813,7 @@ object CineStreamExtractors {
         callback: (ExtractorLink) -> Unit,
     ) {
         val headers = mutableMapOf(
-            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+            "User-Agent" to USER_AGENT,
             "Referer" to "$vidcoreAPI/",
             "X-Requested-With" to "XMLHttpRequest"
         )
@@ -4460,27 +4472,24 @@ object CineStreamExtractors {
         episode: Int? = null,
         callback: (ExtractorLink) -> Unit
     ) {
+        // Evita URLs tipo /movie/null y /tv/1/null
+        if (tmdbId == null || (season != null && episode == null)) return
+
         val headers = mapOf(
-            "Accept"          to "*/*",
-            "Accept-Language" to "en-US,en;q=0.5",
-            "Origin"          to "$peachifyBaseAPI",
-            "Referer"         to "$peachifyBaseAPI/",
-            "Sec-Fetch-Dest"  to "empty",
-            "Sec-Fetch-Mode"  to "cors",
-            "Sec-Fetch-Site"  to "cross-site",
-            "User-Agent"      to "Mozilla/5.0 (X11; Linux x86_64; rv:139.0) Gecko/20100101 Firefox/139.0"
+            "Origin"     to peachifyBaseAPI,
+            "Referer"    to "$peachifyBaseAPI/",
+            "User-Agent" to USER_AGENT
         )
 
-        val servers = listOf(
-            "https://usa.eat-peach.sbs/holly",
-            "https://usa.eat-peach.sbs/multi",
-            "https://usa.eat-peach.sbs/ice",
-            "https://usa.eat-peach.sbs/air",
-            "https://usa.eat-peach.sbs/net",
-        )
+        // usa.eat-peach.sbs ya no resuelve DNS; upstream migro a la API central
+        val servers = listOf("multi", "hr", "holly", "air", "moviebox")
 
         servers.safeAmap { server ->
-            val url = if(season == null) "$server/movie/$tmdbId" else "$server/tv/$tmdbId/$season/$episode"
+            val url = if (season == null) {
+                "$peachifyAPI/$server/movie/$tmdbId"
+            } else {
+                "$peachifyAPI/$server/tv/$tmdbId/$season/$episode"
+            }
             val text = app.get(url, headers = headers).text
 
             Log.d("Peachify", "Response from $server: $text")
@@ -4875,7 +4884,7 @@ object CineStreamExtractors {
                 sourceRes.subtitles?.forEach { sub ->
                     val file = sub.file ?: return@forEach
                     val label = sub.label ?: "Unknown"
-                    subtitleCallback(newSubtitleFile(label, file))
+                    mySubtitleCallback(label, file, subtitleCallback, "Anikage")
                 }
 
                 sourceRes.embeds?.safeAmap { embed ->
