@@ -319,6 +319,13 @@ object ProviderRegistry {
             }
         ),
         ProviderDef(
+            key = "p_f8", displayName = "F8 · BingeBang",
+            executeStandard = { res, subCb, cb ->
+                if (!res.isAnime)
+                    invokeF8(res.title, res.originalTitle, res.year, res.airedYear, res.season, res.episode, subCb, cb)
+            }
+        ),
+        ProviderDef(
             key = "p_skymovies", displayName = "SkyMovies",
             executeStandard = { res, subCb, cb -> if (!res.isAnime) invokeSkymovies(res.title, res.airedYear ?: res.year, res.episode, subCb, cb) }
         ),

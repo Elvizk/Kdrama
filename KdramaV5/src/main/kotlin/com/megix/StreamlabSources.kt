@@ -7,6 +7,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
+import java.security.MessageDigest
 import java.util.Locale
 
 // Port de las recetas validadas de StreamLab (`Scraping video/streamlab/sources/`).
@@ -455,6 +456,287 @@ suspend fun CineStreamExtractors.invokeF3(
             callback.invoke(newExtractorLink(label, label, s.url, type) {
                 headers = mapOf("Referer" to "$F3_SITE/")
                 quality = getIndexQuality(s.quality)
+            })
+        }
+    }
+}
+
+// ── F8 · bingebang.sx ────────────────────────────────────────────────
+private const val F8_TAG = "StreamlabF8"
+private val f8Bases = arrayOf("https://bingebang.sx", "https://bingebang.st")
+private const val F8_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+
+private val f8KRegex = Regex("""k\s*=\s*\[([0-9,\s]+)\]""")
+private val f8DRegex = Regex("""d\s*=\s*\[([0-9,\s]+)\]""")
+private val f8TicketRegex = Regex("""ticket:\s*"([^"]+)"""")
+private val f8EncRegex = Regex(""""enc"\s*:\s*"([^"]+)"""")
+
+// Constantes del cifrado (waelum.js): k (7 B) y v (32 B).
+private val f8K = intArrayOf(199, 71, 13, 231, 255, 68, 237)
+private val f8V = intArrayOf(
+    254, 34, 63, 133, 200, 39, 217, 246, 38, 61, 129, 201, 32, 213, 242, 37,
+    62, 132, 206, 33, 218, 166, 126, 57, 129, 205, 113, 137, 247, 37, 53, 209,
+)
+
+private fun sha256(data: ByteArray): ByteArray =
+    MessageDigest.getInstance("SHA-256").digest(data)
+
+/** Config XOR de la página play: arrays `k=[...]` y `d=[...]` → texto claro. */
+private fun f8DecryptXor(html: String): String? {
+    val key = f8KRegex.find(html)?.groupValues?.get(1)
+        ?.split(",")?.mapNotNull { it.trim().toIntOrNull() }
+    val data = f8DRegex.find(html)?.groupValues?.get(1)
+        ?.split(",")?.mapNotNull { it.trim().toIntOrNull() }
+    if (key.isNullOrEmpty() || data.isNullOrEmpty()) return null
+    val out = ByteArray(data.size) { i -> (data[i] xor key[i % key.size]).toByte() }
+    return out.toString(Charsets.UTF_8)
+}
+
+/**
+ * Payload ChaCha-like: 16 B IV || ciphertext; keystream = sha256 por bloque.
+ * Sin `enc` devuelve el body tal cual (como el `f8.py` original).
+ */
+private fun f8DecryptPayload(body: String, ticket: String): String {
+    val enc = f8EncRegex.find(body)?.groupValues?.get(1) ?: return body
+    val padded = enc + "=".repeat((4 - enc.length % 4) % 4)
+    val raw = try {
+        java.util.Base64.getUrlDecoder().decode(padded)
+    } catch (e: Exception) {
+        return body
+    }
+    if (raw.size <= 48) return body
+    val payload = raw.copyOfRange(16, raw.size)
+    val seed = ByteArray(32) { i -> (f8V[i] xor f8K[i % f8K.size]).toByte() }
+    val block = ByteArray(52)
+    sha256(seed + ticket.toByteArray(Charsets.UTF_8)).copyInto(block, 0, 0, 32)
+    raw.copyInto(block, 32, 0, 16)
+    val out = ByteArray(payload.size)
+    var counter = 0
+    var pos = 0
+    while (pos < payload.size) {
+        block[48] = (counter shr 24).toByte()
+        block[49] = (counter shr 16).toByte()
+        block[50] = (counter shr 8).toByte()
+        block[51] = counter.toByte()
+        val stream = sha256(block.copyOf())
+        val n = minOf(32, payload.size - pos)
+        for (i in 0 until n) {
+            out[pos + i] = (payload[pos + i].toInt() xor stream[i].toInt()).toByte()
+        }
+        pos += n
+        counter++
+    }
+    return out.toString(Charsets.UTF_8)
+}
+
+private data class F8Candidate(val slug: String, val score: Int, val year: Int?)
+private data class F8Stream(
+    val label: String,
+    val url: String,
+    val type: ExtractorLinkType,
+    val res: String,
+    val quality: Int,
+)
+
+/** Memo de 60 s por (slug, temporada, episodio); la rotación de servers es alta. */
+private val f8Cache = object {
+    private val ttlMs = 60_000L
+    private val data = HashMap<String, Pair<Long, List<F8Stream>>>()
+    private val lock = Mutex()
+
+    suspend fun get(key: String): List<F8Stream>? = lock.withLock {
+        val hit = data[key] ?: return@withLock null
+        if (System.currentTimeMillis() - hit.first > ttlMs) {
+            data.remove(key)
+            null
+        } else {
+            hit.second
+        }
+    }
+
+    suspend fun set(key: String, value: List<F8Stream>) = lock.withLock {
+        if (data.size >= 64) data.clear()
+        data[key] = System.currentTimeMillis() to value
+    }
+}
+
+private val f8Mutex = Mutex()
+
+private suspend fun f8Search(title: String, wantTv: Boolean, year: Int?): F8Candidate? {
+    val key = normKey(title)
+    if (key.isEmpty()) return null
+    for (base in f8Bases) {
+        val body = try {
+            val response = app.get(
+                "$base/api/search/multi?query=${quote(title)}",
+                headers = mapOf("User-Agent" to F8_UA, "Accept" to "application/json, text/plain, */*"),
+                timeout = 20_000L,
+            )
+            if (response.code != 200) continue
+            response.text
+        } catch (e: Exception) {
+            continue
+        }
+        val results = try {
+            JSONObject(body).optJSONArray("results")
+        } catch (e: Exception) {
+            continue
+        } ?: continue
+        val cands = mutableListOf<F8Candidate>()
+        for (i in 0 until results.length()) {
+            val r = results.optJSONObject(i) ?: continue
+            val playUrl = r.optString("play_url").ifBlank { continue }
+            val slug = playUrl.trimEnd('/').substringAfterLast('/').ifBlank { continue }
+            val media = r.optString("media_type").ifBlank { "tv" }
+            if (wantTv && media != "tv" || !wantTv && media != "movie") continue
+            val t = normKey(r.optString("title").ifBlank { r.optString("name") })
+            val score = if (t == key) 100 else if (key in t || t in key) 60 else 0
+            if (score == 0) continue
+            val y = r.optInt("year", -1).takeIf { it > 0 }
+            cands.add(F8Candidate(slug, score, y))
+        }
+        if (cands.isEmpty()) continue
+        // Exacto primero; desempate por año ±1 (homónimos, ver ficha §2).
+        return cands.sortedWith(
+            compareByDescending<F8Candidate> { it.score }
+                .thenBy { it.year?.let { y -> year?.let { kotlin.math.abs(y - it) } } ?: Int.MAX_VALUE }
+        ).first()
+    }
+    return null
+}
+
+private fun f8Res(quality: String?): Pair<String, Int> {
+    val q = quality.orEmpty()
+    return when {
+        q.contains("4K", ignoreCase = true) -> "2160p" to Qualities.P2160.value
+        q.contains("FULL", ignoreCase = true) -> "1080p" to Qualities.P1080.value
+        q.trim().equals("HD", ignoreCase = true) -> "720p" to Qualities.P720.value
+        else -> {
+            val n = getIndexQuality(q)
+            if (n == Qualities.Unknown.value) (q.ifBlank { "Auto" }) to Qualities.Unknown.value
+            else "${n}p" to n
+        }
+    }
+}
+
+private suspend fun f8Collect(
+    slug: String,
+    season: Int?,
+    ep: Int,
+    subtitleCallback: (SubtitleFile) -> Unit,
+): List<F8Stream> {
+    val cacheKey = "$slug|${season ?: "movie"}|$ep"
+    f8Cache.get(cacheKey)?.let { return it }
+    return f8Mutex.withLock {
+        f8Cache.get(cacheKey)?.let { return@withLock it }
+        val out = mutableListOf<F8Stream>()
+        for (base in f8Bases) {
+            val playUrl = if (season == null) "$base/movie/play/$slug"
+            else "$base/tv/play/$slug/${season}/$ep"
+            val html = try {
+                val response = app.get(
+                    playUrl,
+                    headers = mapOf("User-Agent" to F8_UA, "Referer" to "$base/"),
+                    timeout = 20_000L,
+                )
+                if (response.code != 200) continue
+                response.text
+            } catch (e: Exception) {
+                continue
+            }
+            val ticket = (f8DecryptXor(html) ?: continue).let { f8TicketRegex.find(it)?.groupValues?.get(1) }
+                ?: continue
+            val ph = mapOf(
+                "User-Agent" to F8_UA,
+                "Accept" to "application/json, text/plain, */*",
+                "Referer" to playUrl,
+                "Origin" to base,
+                "X-BB-Player" to "1",
+                "X-BB-Ticket" to ticket,
+            )
+            val payload = try {
+                val response = app.get("$base/api/player/sources", headers = ph, timeout = 20_000L)
+                if (response.code != 200) continue
+                JSONObject(f8DecryptPayload(response.text, ticket))
+            } catch (e: Exception) {
+                Log.d(F8_TAG, "sources falló en $base: ${e.message}")
+                continue
+            }
+            val servers = payload.optJSONArray("servers") ?: continue
+            for (i in 0 until servers.length()) {
+                val sv = servers.optJSONObject(i) ?: continue
+                val src = sv.optString("source_url").ifBlank { continue }
+                // Un server caído no tumba el inventario: se salta (rotación).
+                val resolved = try {
+                    val response = app.get(
+                        "$base/api/player/resolve?src=${quote(src)}",
+                        headers = ph,
+                        timeout = 20_000L,
+                    )
+                    if (response.code != 200) continue
+                    JSONObject(f8DecryptPayload(response.text, ticket))
+                } catch (e: Exception) {
+                    continue
+                }
+                val url = resolved.optString("url").takeIf { it.startsWith("http") } ?: continue
+                val label = sv.optString("label").ifBlank { "srv" }
+                val (res, q) = f8Res(sv.optString("quality").ifBlank { resolved.optString("quality") })
+                val dup = label.equals("wezen", ignoreCase = true)
+                val name = if (dup) "$label (dup F3)" else label
+                val type = if (url.substringBefore('?').endsWith(".mp4", ignoreCase = true)) {
+                    ExtractorLinkType.VIDEO
+                } else {
+                    ExtractorLinkType.M3U8
+                }
+                resolved.optJSONArray("subtitles")?.let { subs ->
+                    for (j in 0 until subs.length()) {
+                        val s = subs.optJSONObject(j) ?: continue
+                        val src = s.optString("url").ifBlank { s.optString("src") }
+                        if (src.isBlank()) continue
+                        mySubtitleCallback(s.optString("lang").ifBlank { s.optString("label") }, src, subtitleCallback)
+                    }
+                }
+                out.add(F8Stream(name, url, type, res, q))
+            }
+            if (out.isNotEmpty()) break
+        }
+        f8Cache.set(cacheKey, out)
+        Log.d(F8_TAG, "play $slug s=${season ?: 1} e=$ep -> ${out.map { it.label }}")
+        out
+    }
+}
+
+/**
+ * F8: búsqueda por título → play → config XOR (ticket) → `/api/player/sources`
+ * → `/api/player/resolve` por server. Cifrado ChaCha-like con SHA-256
+ * (port de waelum.js vía `f8.py`). Se emite un link por server; `Wezen` con
+ * badge de duplicado F3 (ADR-14). URLs efímeras: siempre frescas, sin caché.
+ */
+suspend fun CineStreamExtractors.invokeF8(
+    title: String?,
+    originalTitle: String? = null,
+    year: Int? = null,
+    airedYear: Int? = null,
+    season: Int? = null,
+    episode: Int? = null,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit,
+) {
+    if (title.isNullOrBlank() && originalTitle.isNullOrBlank()) return
+    withTimeout(60_000L) {
+        val wantTv = season != null
+        val refYear = airedYear ?: year
+        val cand = f8Search(title ?: return@withTimeout, wantTv, refYear)
+            ?: (originalTitle?.takeIf { it != title }?.let { f8Search(it, wantTv, refYear) })
+            ?: return@withTimeout
+        val ep = (episode ?: 1).coerceAtLeast(1)
+        val streams = f8Collect(cand.slug, season, ep, subtitleCallback)
+        streams.forEach { s ->
+            val label = "F8 - BingeBang - ${s.label} - ${s.res}"
+            callback.invoke(newExtractorLink(label, label, s.url, s.type) {
+                headers = mapOf("Referer" to "${f8Bases[0]}/", "User-Agent" to F8_UA)
+                quality = s.quality
             })
         }
     }
