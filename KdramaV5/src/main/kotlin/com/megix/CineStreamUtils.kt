@@ -36,6 +36,7 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
 // Java Utils
+import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -454,6 +455,22 @@ fun String?.createSlug(): String? {
         ?.trim()
         ?.replace("\\s+".toRegex(), "-")
         ?.lowercase()
+}
+
+/**
+ * Equivalente a `streamlab/core.py::norm_key`: minúsculas, sin diacríticos ni
+ * puntuación. `createSlug()` no normaliza títulos vietnamitas
+ * (`Ý Sếp Là Ý Trời` → `y sep la y troi`), por eso las fuentes StreamLab usan
+ * esta función para emparejar títulos con los sitios WP.
+ */
+fun normKey(input: String?): String {
+    if (input.isNullOrBlank()) return ""
+    val decomposed = Normalizer.normalize(input, Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}"), "")   // marcas combinantes (diacríticos)
+        .replace(Regex("[đĐ]"), "d")    // Đ no se descompone con NFD
+    return decomposed.lowercase(Locale.ROOT)
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .trim()
 }
 
 fun quote(s: String): String =

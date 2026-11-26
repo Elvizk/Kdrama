@@ -297,6 +297,14 @@ object ProviderRegistry {
             key = "p_asiaflix", displayName = "Asiaflix",
             executeStandard = { res, subCb, cb -> if (!res.isAnime) invokeAsiaflix(res.title, res.season, res.episode, res.airedYear ?: res.year, subCb, cb) }
         ),
+        // ── StreamLab (recetas validadas, solo K/C-drama) ────────────────
+        ProviderDef(
+            key = "p_f6", displayName = "F6 · Motchill (kvp726)",
+            executeStandard = { res, _, cb ->
+                if (res.isAsian && !res.isAnime)
+                    invokeF6(res.title, res.originalTitle, res.season, res.episode, cb)
+            }
+        ),
         ProviderDef(
             key = "p_skymovies", displayName = "SkyMovies",
             executeStandard = { res, subCb, cb -> if (!res.isAnime) invokeSkymovies(res.title, res.airedYear ?: res.year, res.episode, subCb, cb) }
