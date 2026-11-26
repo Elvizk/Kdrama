@@ -8,7 +8,6 @@ import org.json.JSONObject
 const val malsyncAPI = "https://api.malsync.moe"
 const val tokyoInsiderAPI = "https://www.tokyoinsider.com"
 const val WYZIESubsAPI = "https://sub.wyzie.io"
-const val MostraguardaAPI = "https://mostraguarda.stream"
 const val CC_COOKIE = BuildConfig.CC_COOKIE
 const val animepaheAPI = "https://animepahe.pw"
 const val allmovielandAPI = "https://allmovieland.one"
@@ -63,9 +62,7 @@ const val anikotoAPI = "https://anikototv.to"
 const val vaPlayerAPI = "https://streamdata.vaplayer.ru"
 const val fshareAPI = "https://fsharetv.cc"
 const val anikageAPI = "https://anikage.cc"
-const val hdGharTvAPI = "https://hdghartv.cc"
 const val vidupAPI = "https://vidup.to"
-const val ctgMoviesBaseAPI = "https://ctgmovies.com"
 const val mydramaAPI = "https://mydramalist-vanced.onrender.com"
 const val mydramaApiKey = "mydrama_live_qszvyQxAGeLu4lWWWUgp-3Dth1pvEMYipV4QG6cKIww"
 
@@ -92,7 +89,6 @@ val bollyflixAPI get() = api("bollyflix")
 val movies4uAPI get() = api("movies4u")
 val skymoviesAPI get() = api("skymovies")
 val hindMoviezAPI get() = api("hindmoviez")
-val hdmovie2API get() = api("hdmovie2")
 val nfmirrorAPI get() = api("nfmirror")
 val moviesdriveAPI get() = api("moviesdrive")
 val gojoBaseAPI get() = api("gojo_base")

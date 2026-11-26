@@ -1796,99 +1796,6 @@ object CineStreamExtractors {
         )
     }
 
-    suspend fun invokeHdmovie2(
-        title: String? = null,
-        year: Int? = null,
-        episode: Int? = null,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
-    ) {
-        val headers = mapOf(
-            "User-Agent" to USER_AGENT
-        )
-
-        val document = app.get("$hdmovie2API/movies/${title.createSlug()}-$year", headers = headers, allowRedirects = true).document
-        val ajaxUrl = "$hdmovie2API/wp-admin/admin-ajax.php"
-        val commonHeaders = mapOf(
-            "Accept" to "*/*",
-            "X-Requested-With" to "XMLHttpRequest"
-        )
-
-        suspend fun String.getIframe(): String = Jsoup.parse(this).select("iframe").attr("src")
-
-        suspend fun fetchSource(post: String, nume: String, type: String): String {
-            val response = app.post(
-                url = ajaxUrl,
-                data = mapOf(
-                "action" to "doo_player_ajax",
-                "post" to post,
-                "nume" to nume,
-                "type" to type
-            ),
-            referer = hdmovie2API,
-            headers = commonHeaders
-            ).parsed<ResponseHash>()
-            return response.embed_url.getIframe()
-        }
-
-        var link = ""
-
-        if (episode != null) {
-            document.select("ul#playeroptionsul > li").getOrNull(1)?.let { ep ->
-                val post = ep.attr("data-post")
-                val nume = (episode + 1).toString()
-                link = fetchSource(post, nume, "movie")
-        }
-        } else {
-            document.select("ul#playeroptionsul > li")
-                .firstOrNull { it.text().contains("v2", ignoreCase = true) }
-                ?.let { mv ->
-                    val post = mv.attr("data-post")
-                    val nume = mv.attr("data-nume")
-                    link = fetchSource(post, nume, "movie")
-                }
-        }
-
-        val (sSlug, eSlug) = getEpisodeSlug(1, episode)
-
-        if (link.isEmpty()) {
-            document.select("a[href*=dwo]").safeAmap { anchor ->
-                val anchorText = anchor.text()
-
-                val type = if (episode != null && !anchorText.contains("ep", ignoreCase = true)) {
-                    " (Combined)"
-                } else {
-                    ""
-                }
-
-                if (episode != null && type == "" && !anchorText.contains("ep$eSlug", ignoreCase = true)) {
-                    return@safeAmap
-                }
-
-                val innerDoc = app.get(anchor.attr("href")).document
-                innerDoc.select("div > p > a").safeAmap {
-                    loadSourceNameExtractor(
-                        "Hdmovie2$type",
-                        it.attr("href"),
-                        "",
-                        subtitleCallback,
-                        callback
-                    )
-                }
-            }
-        }
-
-        if (link.isNotEmpty()) {
-            loadSourceNameExtractor(
-                "Hdmovie2",
-                link,
-                hdmovie2API,
-                subtitleCallback,
-                callback,
-            )
-        }
-    }
-
     suspend fun invokeSkymovies(
         title: String? = null,
         year: Int? = null,
@@ -2388,27 +2295,6 @@ object CineStreamExtractors {
                         callback
                     )
                 }
-            }
-        }
-    }
-
-    suspend fun invokeMostraguarda(
-        id: String? = null,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
-    ) {
-        val url = "$MostraguardaAPI/movie/$id"
-        val doc = app.get(
-            url,
-            headers = mapOf(
-                "User-Agent" to "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-            )
-        ).document
-
-        doc.select("ul > li").safeAmap {
-            if(it.text().contains("supervideo")) {
-                val source = "https:" + it.attr("data-link")
-                SuperVideo().getUrl(source, "", subtitleCallback, callback)
             }
         }
     }
@@ -4900,52 +4786,6 @@ object CineStreamExtractors {
 
     }
 
-    suspend fun invokeHdGharTv(
-        title: String? = null,
-        tmdbId: Int? = null,
-        season: Int? = null,
-        episode: Int? = null,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
-    ) {
-        val type = if(season == null) "movies" else "series"
-
-        val searchJson = app.get("$hdGharTvAPI/api/search?q=$title&type=all&page=1").text
-        val searchResponse = tryParseJson<HdGharSearchResponse>(searchJson) ?: return
-        val allItems = searchResponse.movies.orEmpty() + searchResponse.series.orEmpty()
-        val matchedId = allItems.find { it.tmdbId == tmdbId }?.id ?: return
-
-        val detailsJson = app.get("$hdGharTvAPI/api/$type/public/$matchedId").text
-        val detailsResponse = tryParseJson<HdGharDetailsResponse>(detailsJson) ?: return
-
-        val extractedLinks = if (type == "movies") {
-            detailsResponse.streamingLinks.orEmpty()
-        } else {
-            val targetSeason = detailsResponse.seasons?.find { it.seasonNumber == season }
-            val targetEpisode = targetSeason?.episodes?.find { it.episodeNumber == episode }
-            targetEpisode?.streamingLinks.orEmpty()
-        }
-
-        extractedLinks.forEach { link ->
-            val url = link.url ?: return@forEach
-            val quality = getIndexQuality(link.quality)
-            val isM3u8 = link.type?.contains("hls", ignoreCase = true) == true || url.contains(".m3u8")
-
-            callback.invoke(
-                newExtractorLink(
-                    "HdGharTv",
-                    "HdGharTv",
-                    url,
-                    if(isM3u8) ExtractorLinkType.M3U8 else INFER_TYPE
-                ) {
-                    this.quality = quality
-                    this.referer = "$hdGharTvAPI/"
-                }
-            )
-        }
-
-    }
-
     suspend fun invokeAnikoto(
         title: String? = null,
         year: Int? = null,
@@ -5120,67 +4960,6 @@ object CineStreamExtractors {
             }
         }
 
-    }
-
-    suspend fun invokeCtgMovies(
-        title: String? = null,
-        season: Int? = null,
-        episode: Int? = null,
-        type: String,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
-    ) {
-        val contentType = if(type == "anime") {
-            "anime"
-        } else if (season != null) {
-            "tv"
-        } else {
-            "movies"
-        }
-
-        val slug = title.createSlug() ?: return
-
-        val html = app.get("$ctgMoviesBaseAPI/$contentType/$slug").text
-        val allLinks = parseCtgLinks(html)
-        if (allLinks.isEmpty()) return
-
-        val links = if (season != null && episode != null) {
-            allLinks.filter { it.seasonNumber == season && it.episodeNumber == episode }
-                .ifEmpty { allLinks }
-        } else {
-            allLinks
-        }
-
-        if (links.isEmpty()) return
-
-        val STREAM_HEADERS = mapOf(
-            "User-Agent" to USER_AGENT,
-            "Accept" to "video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5",
-            "Accept-Language" to "en-US,en;q=0.9",
-            "Accept-Encoding" to "identity",
-            "Referer" to "$ctgMoviesBaseAPI/",
-            "Sec-Fetch-Dest" to "video",
-            "Sec-Fetch-Mode" to "no-cors",
-            "Sec-Fetch-Site" to "cross-site",
-            "DNT" to "1"
-        )
-
-        links.forEach { link ->
-            val playUrl = link.hlsUrl ?: link.url ?: return@forEach
-            val isM3u8 = playUrl.contains(".m3u8") || link.hlsUrl != null
-
-            callback.invoke(
-                newExtractorLink(
-                    "CTGMovies",
-                    "CTGMovies ${link.source ?: "default"}",
-                    playUrl,
-                    type = if (isM3u8) ExtractorLinkType.M3U8 else INFER_TYPE
-                ) {
-                    this.quality = getIndexQuality(link.quality)
-                    this.headers = STREAM_HEADERS
-                }
-            )
-        }
     }
 
 }

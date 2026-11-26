@@ -167,10 +167,7 @@ object ProviderRegistry {
             key = "p_vidup", displayName = "Vidup",
             executeStandard = { res, subCb, cb -> invokeVidup(res.tmdbId, res.season, res.episode, subCb, cb) }
         ),
-        ProviderDef(
-            key = "p_ctgmovies", displayName = "CtgMovies",
-            executeStandard = { res, subCb, cb -> invokeCtgMovies(res.title, res.season, res.episode, "normal", subCb, cb) }
-        ),
+
 
         ProviderDef(
             key = "p_zinkmovies", displayName = "Zinkmovies",
@@ -267,10 +264,7 @@ object ProviderRegistry {
             key = "p_levidia", displayName = "Levidia",
             executeStandard = { res, subCb, cb -> invokeLevidia(res.title, res.year, res.season, res.episode, subCb, cb) },
         ),
-        ProviderDef(
-            key = "p_hdghartv", displayName = "HdGharTv",
-            executeStandard = { res, subCb, cb -> if(!res.isAnime) invokeHdGharTv(res.title, res.tmdbId, res.season, res.episode, subCb, cb) },
-        ),
+
         ProviderDef(
             key = "p_dahmermovies", displayName = "DahmerMovies",
             executeStandard = { res, _, cb -> invokeDahmerMovies(res.title, res.year, res.season, res.episode, cb) },
@@ -307,14 +301,7 @@ object ProviderRegistry {
             key = "p_skymovies", displayName = "SkyMovies",
             executeStandard = { res, subCb, cb -> if (!res.isAnime) invokeSkymovies(res.title, res.airedYear ?: res.year, res.episode, subCb, cb) }
         ),
-        ProviderDef(
-            key = "p_hdmovie2", displayName = "HDMovie2",
-            executeStandard = { res, subCb, cb -> if (!res.isAnime) invokeHdmovie2(res.title, res.airedYear ?: res.year, res.episode, subCb, cb) }
-        ),
-        ProviderDef(
-            key = "p_mostraguarda", displayName = "Mostraguarda",
-            executeStandard = { res, subCb, cb -> if (res.season == null) invokeMostraguarda(res.imdbId, subCb, cb) }
-        ),
+
 
         // ── Asian Drama & Anime Specific (Including MALSync logic) ─
         ProviderDef(

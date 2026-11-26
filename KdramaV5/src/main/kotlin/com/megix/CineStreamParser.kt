@@ -1058,39 +1058,6 @@ data class AnikotoServerResult(
     val url: String? = null,
 )
 
-//HdGharTv
-
-data class HdGharSearchResponse(
-    val movies: List<HdGharSearchItem>? = null,
-    val series: List<HdGharSearchItem>? = null
-)
-
-data class HdGharSearchItem(
-    @param:JsonProperty("_id") val id: String? = null,
-    val tmdbId: Int? = null
-)
-
-data class HdGharDetailsResponse(
-    val streamingLinks: List<HdGharLink>? = null, // For Movies
-    val seasons: List<HdGharSeason>? = null              // For Series
-)
-
-data class HdGharSeason(
-    val seasonNumber: Int? = null,
-    val episodes: List<HdGharEpisode>? = null
-)
-
-data class HdGharEpisode(
-    val episodeNumber: Int? = null,
-    val streamingLinks: List<HdGharLink>? = null
-)
-
-data class HdGharLink(
-    val quality: String? = null,
-    val url: String? = null,
-    val type: String? = null
-)
-
 // ── Vidup ────────────────────────────────────────────────────────
 data class VidupResponse(
     @param:JsonProperty("status") val status: Int? = null,
@@ -1126,16 +1093,6 @@ data class VidupStreamResult(
 data class VidupTrack(
     @param:JsonProperty("file") val file: String? = null,
     @param:JsonProperty("label") val label: String? = null
-)
-
-// ── CtgMovies ────────────────────────────────────────────────────
-data class CtgLink(
-    val seasonNumber: Int? = null,
-    val episodeNumber: Int? = null,
-    val source: String? = null,
-    val quality: String? = null,
-    val hlsUrl: String? = null,
-    val url: String? = null
 )
 
 // ── MyDramaList API ──────────────────────────────────────────────
