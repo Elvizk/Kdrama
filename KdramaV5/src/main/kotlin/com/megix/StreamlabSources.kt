@@ -713,6 +713,125 @@ private suspend fun f8Collect(
  * (port de waelum.js vía `f8.py`). Se emite un link por server; `Wezen` con
  * badge de duplicado F3 (ADR-14). URLs efímeras: siempre frescas, sin caché.
  */
+// ── F2 · novahd.cc (MovieBox HLS HEVC) ──────────────────────────────
+private const val F2_TAG = "StreamlabF2"
+private const val F2_BASE = "https://novahd.cc"
+// Un visitor por sesión (la API lo usa como id de cliente).
+private val f2Visitor: String by lazy { java.util.UUID.randomUUID().toString() }
+
+private data class F2Stream(
+    val provider: String,
+    val url: String,
+    val type: String,
+    val quality: String,
+)
+
+/** Memo de 60 s por (tmdb, temporada, episodio). */
+private val f2Cache = object {
+    private val ttlMs = 60_000L
+    private val data = HashMap<String, Pair<Long, List<F2Stream>>>()
+    private val lock = Mutex()
+
+    suspend fun get(key: String): List<F2Stream>? = lock.withLock {
+        val hit = data[key] ?: return@withLock null
+        if (System.currentTimeMillis() - hit.first > ttlMs) {
+            data.remove(key)
+            null
+        } else {
+            hit.second
+        }
+    }
+
+    suspend fun set(key: String, value: List<F2Stream>) = lock.withLock {
+        if (data.size >= 64) data.clear()
+        data[key] = System.currentTimeMillis() to value
+    }
+}
+
+private val f2Mutex = Mutex()
+
+private suspend fun f2Collect(tmdb: Int, season: Int?, ep: Int): List<F2Stream> {
+    val key = "$tmdb|${season ?: "movie"}|$ep"
+    f2Cache.get(key)?.let { return it }
+    return f2Mutex.withLock {
+        f2Cache.get(key)?.let { return@withLock it }
+        val headers = mapOf(
+            "x-nova-visitor" to f2Visitor,
+            "Accept" to "application/json, text/plain, */*",
+            "Referer" to "$F2_BASE/",
+        )
+        val found = mutableListOf<F2Stream>()
+        try {
+            // /api/config declara flags/seguridad; su fallo no es fatal.
+            try {
+                app.get("$F2_BASE/api/config", headers = headers, timeout = 15_000L)
+            } catch (e: Exception) {
+                Log.d(F2_TAG, "config falló (no fatal): ${e.message}")
+            }
+            val path = if (season == null) "/api/sources?type=movie&tmdbId=$tmdb"
+            else "/api/sources?type=show&tmdbId=$tmdb&season=$season&episode=$ep"
+            val response = app.get(F2_BASE + path, headers = headers, timeout = 20_000L)
+            if (response.code == 200) {
+                val data = JSONObject(response.text)
+                var sources = data.optJSONArray("sources")
+                if (sources == null) {
+                    sources = data.optJSONObject("data")?.optJSONArray("sources")
+                }
+                if (sources != null) {
+                    for (i in 0 until sources.length()) {
+                        val s = sources.optJSONObject(i) ?: continue
+                        val url = s.optString("url").takeIf { it.startsWith("http") } ?: continue
+                        found.add(
+                            F2Stream(
+                                provider = s.optString("provider")
+                                    .ifBlank { s.optString("server").ifBlank { "s$i" } },
+                                url = url,
+                                type = s.optString("type").ifBlank { "hls" },
+                                quality = s.optString("quality"),
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.d(F2_TAG, "sources falló: ${e.message}")
+        }
+        f2Cache.set(key, found)
+        Log.d(F2_TAG, "tv/$tmdb/${season ?: 1}/$ep -> ${found.map { it.provider }}")
+        found
+    }
+}
+
+/**
+ * F2: `/api/config` + `/api/sources?type=show|movie&tmdbId=`. La `url` es el
+ * máster HLS efímero (leer siempre de la respuesta, nunca hardcodear hosts
+ * `*.workers.dev`). HEVC: se etiqueta, no todos los móviles lo decodifican.
+ */
+suspend fun CineStreamExtractors.invokeF2(
+    tmdbId: Int?,
+    season: Int? = null,
+    episode: Int? = null,
+    callback: (ExtractorLink) -> Unit,
+) {
+    if (tmdbId == null) return
+    withTimeout(45_000L) {
+        val ep = (episode ?: 1).coerceAtLeast(1)
+        f2Collect(tmdbId, season, ep).forEach { s ->
+            val q = s.quality.ifBlank { "1080p" }
+            val label = "F2 - NovaHD - ${s.provider} - $q HEVC"
+            val type = when (s.type.lowercase(Locale.ROOT)) {
+                "mp4" -> ExtractorLinkType.VIDEO
+                "hls", "m3u8" -> ExtractorLinkType.M3U8
+                else -> INFER_TYPE
+            }
+            callback.invoke(newExtractorLink(label, label, s.url, type) {
+                headers = mapOf("Referer" to "$F2_BASE/")
+                quality = getIndexQuality(s.quality)
+            })
+        }
+    }
+}
+
 suspend fun CineStreamExtractors.invokeF8(
     title: String?,
     originalTitle: String? = null,

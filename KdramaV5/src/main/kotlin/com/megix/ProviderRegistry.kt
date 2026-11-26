@@ -319,6 +319,12 @@ object ProviderRegistry {
             }
         ),
         ProviderDef(
+            key = "p_f2", displayName = "F2 · NovaHD (HEVC)",
+            executeStandard = { res, _, cb ->
+                res.tmdbId?.let { invokeF2(it, res.season, res.episode, cb) }
+            }
+        ),
+        ProviderDef(
             key = "p_f8", displayName = "F8 · BingeBang",
             executeStandard = { res, subCb, cb ->
                 if (!res.isAnime)
