@@ -10,6 +10,8 @@ import java.util.Locale
 // F6 · motchillxf.cc → kvp726: WordPress ophim, HTML plano, sin token y sin Referer.
 private const val F6_TAG = "StreamlabF6"
 private const val F6_BASE = "https://motchillxf.cc"
+// El sitio redirige a .xh (canónico actual); .xv aparece en la ficha histórica.
+private const val F6_BASE_CANONICAL = "https://motchillxh.cc"
 private const val F6_BASE_ALT = "https://motchillxv.cc"
 
 private data class F6Match(
@@ -21,7 +23,7 @@ private data class F6Match(
 
 /** `.xf` redirige a `.xv` (canónico); se aceptan ambos como base. */
 private suspend fun f6Get(path: String): String? {
-    for (base in arrayOf(F6_BASE, F6_BASE_ALT)) {
+    for (base in arrayOf(F6_BASE, F6_BASE_CANONICAL, F6_BASE_ALT)) {
         try {
             val response = app.get(base + path, timeout = 20_000L)
             if (response.code == 200 && response.text.contains("<")) return response.text
@@ -53,7 +55,7 @@ private val f6OriginalRegex = Regex(
     setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
 )
 
-private val f6TapRegex = Regex("""/phim/[^"/?#]+/tap-(\d+)-sv-\d+""")
+private val f6TitleAttrRegex = Regex("title=\"([^\"]*)\"")
 
 private val f6ServerTagRegex = Regex(
     """<a[^>]*class="[^"]*streaming-server[^"]*"[^>]*>""",
@@ -73,7 +75,10 @@ private fun f6ParseSearch(html: String): List<F6Match> {
         val window = inner + html.substring(end, minOf(end + 500, html.length))
         val original = f6OriginalRegex.find(window)?.groupValues?.get(1)
             ?.let(::f6Text)?.takeIf { it.isNotEmpty() }
-        val title = f6EpisodeSuffix.replace(f6Text(inner), "").trim()
+        // Las tarjetas ponen el título en el atributo `title` del <a> y el
+        // interior es sólo una imagen, así que se lee el atributo primero.
+        val attrTitle = f6TitleAttrRegex.find(m.value)?.groupValues?.get(1)
+        val title = f6EpisodeSuffix.replace(f6Text(attrTitle ?: inner), "").trim()
             .ifEmpty { slug.replace("-", " ") }
         out.add(F6Match(slug, title, original))
     }
@@ -129,11 +134,9 @@ suspend fun CineStreamExtractors.invokeF6(
         // 2) episodio: el sitio enumera tap-NN; CloudStream aporta T/E directo.
         // Las películas (season == null) usan el episodio 1.
         val ep = if (season == null) 1 else (episode ?: 1).coerceAtLeast(1)
-        val detail = f6Get("/phim/${best.slug}") ?: return@withTimeout
-        val availableEps = f6TapRegex.findAll(detail)
-            .mapNotNull { it.groupValues[1].toIntOrNull() }
-            .toSet()
-        if (availableEps.isNotEmpty() && ep !in availableEps) return@withTimeout
+        // La ficha NO lista los episodios en HTML (se cargan por JS): no se
+        // puede filtrar por ahí. Se construye tap-NN y el 404 del sitio es la
+        // señal de "sin cobertura" para ese episodio.
 
         // 3) resolución: sv-0 = kk, `data-link` ya es el máster HLS.
         val page = f6Get("/phim/${best.slug}/tap-${ep.toString().padStart(2, '0')}-sv-0")
