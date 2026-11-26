@@ -399,21 +399,29 @@ private suspend fun f3Collect(tmdb: Int, season: Int?, ep: Int): List<F3Stream> 
             for (mirror in f3Mirrors) {
                 val data = f3Request(mirror, tmdb, season, ep, provider) ?: continue
                 val sources = data.optJSONArray("sources") ?: continue
+                var best: F3Stream? = null
+                var bestScore = -1
                 for (i in 0 until sources.length()) {
                     val s = sources.optJSONObject(i) ?: continue
                     val type = s.optString("type").ifBlank { "mp4" }
                     if (type !in setOf("mp4", "hls", "m3u8")) continue
                     val url = s.optString("url").takeIf { it.startsWith("http") } ?: continue
-                    found.add(
-                        F3Stream(
+                    // Máxima calidad, no primer source: el orden del sources[]
+                    // lo decide el upstream y puede cambiar (Francesca trae
+                    // 480P+360P; hoy el primero ya es el mejor, pero sin
+                    // garantía). O(n) en memoria, sin HTTP extra.
+                    val score = getIndexQuality(s.optString("quality"))
+                    if (best == null || score > bestScore) {
+                        bestScore = score
+                        best = F3Stream(
                             provider = provider,
                             url = url,
                             type = type,
                             quality = s.optString("quality"),
                         )
-                    )
-                    break // primer source utilizable de este proveedor
+                    }
                 }
+                best?.let { found.add(it) }
                 if (found.any { it.provider == provider }) break // mirror sano, siguiente proveedor
             }
         }
