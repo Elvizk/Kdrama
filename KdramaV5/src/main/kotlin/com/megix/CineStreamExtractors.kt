@@ -1585,19 +1585,18 @@ object CineStreamExtractors {
         val slug = title.createSlug() ?: return
         val type = if (season == null) "2" else "1"
         val searchResponse = app.get(
-            "$kissKhAPI/api/DramaList/Search?q=$title&type=$type",
+            "$kissKhAPI/api/DramaList/Search?q=${URLEncoder.encode(title, "UTF-8")}&type=$type",
             referer = "$kissKhAPI/"
         )
         if (searchResponse.code != 200) return
         val res = tryParseJson<ArrayList<KisskhResults>>(searchResponse.text) ?: return
 
-        Log.d("Kisskh", "res: $res")
+        Log.d("Kisskh", "resultados: ${res.size}")
 
         val (id, contentTitle) = if (res.size == 1) {
             res.first().id to res.first().title
         } else {
             val data = res.find {
-                val slugTitle = it.title.createSlug() ?: return@find false
                 val tSlug = it.title?.createSlug() ?: return@find false
                 val tActual = it.title
                 when (season) {
@@ -1609,7 +1608,9 @@ object CineStreamExtractors {
             data?.id to data?.title
         }
 
-        Log.d("Kisskh", "res: $res")
+        if (id == null) return
+
+        Log.d("Kisskh", "id: $id title: $contentTitle")
 
         val detailResponse = app.get(
             "$kissKhAPI/api/DramaList/Drama/$id?isq=false",
@@ -1618,7 +1619,7 @@ object CineStreamExtractors {
         if (detailResponse.code != 200) return
         val resDetail = detailResponse.parsedSafe<KisskhDetail>() ?: return
 
-        Log.d("Kisskh", "resDetail: $resDetail")
+        Log.d("Kisskh", "episodios: ${resDetail.episodes?.size ?: 0}")
 
         val epsId =
             if (season == null) resDetail.episodes?.first()?.id else resDetail.episodes?.find { it.number == episode }?.id
@@ -1628,9 +1629,8 @@ object CineStreamExtractors {
 
         val epJson = app.get("$multiDecryptAPI/enc-kisskh?text=$epsId&type=vid", referer = kissKhAPI).text
 
-        Log.d("Kisskh", "epJson: $epJson")
-
-        val vid_key = JSONObject(epJson).getString("result")
+        val vid_key = runCatching { JSONObject(epJson).optString("result") }
+            .getOrNull()?.takeIf { it.isNotBlank() } ?: return
         val sourcesResponse = app.get(
             "$kissKhAPI/api/DramaList/Episode/$epsId.png?err=false&ts=&time=&kkey=$vid_key",
             referer = kissKhAPI
@@ -1638,11 +1638,12 @@ object CineStreamExtractors {
 
         if (sourcesResponse.code != 200) return
 
-        Log.d("Kisskh", "sourcesResponse: ${sourcesResponse.text}")
-
         sourcesResponse.parsedSafe<KisskhSources>()?.let { source ->
             listOf(source.video, source.thirdParty).safeAmap { link ->
-                val safeLink = link ?: return@safeAmap null
+                // Episodios no estrenados devuelven un countdown en vez de video
+                val safeLink = link?.takeIf {
+                    !it.contains("tickcounter", true) && !it.contains("countdown", true)
+                } ?: return@safeAmap null
                 when {
                     safeLink.contains(".m3u8") || safeLink.contains(".mp4") -> {
                         callback.invoke(
@@ -1677,13 +1678,10 @@ object CineStreamExtractors {
 
         val subJson = app.get("$multiDecryptAPI/enc-kisskh?text=$epsId&type=sub").text
 
-        Log.d("Kisskh", "subJson: $subJson")
-
-        val sub_key = JSONObject(subJson).getString("result")
+        val sub_key = runCatching { JSONObject(subJson).optString("result") }
+            .getOrNull()?.takeIf { it.isNotBlank() } ?: return
 
         val subResponse = app.get("$kissKhAPI/api/Sub/$epsId?kkey=$sub_key", referer = kissKhAPI)
-
-        Log.d("Kisskh", "subResponse: ${subResponse.text}")
 
         if (subResponse.code != 200) return
 
