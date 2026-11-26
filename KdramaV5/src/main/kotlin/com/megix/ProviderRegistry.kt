@@ -306,6 +306,13 @@ object ProviderRegistry {
             }
         ),
         ProviderDef(
+            key = "p_f5", displayName = "F5 · OppaDrama",
+            executeStandard = { res, subCb, cb ->
+                if (res.isAsian && !res.isAnime)
+                    invokeF5(res.title, res.originalTitle, res.season, res.episode, subCb, cb)
+            }
+        ),
+        ProviderDef(
             key = "p_skymovies", displayName = "SkyMovies",
             executeStandard = { res, subCb, cb -> if (!res.isAnime) invokeSkymovies(res.title, res.airedYear ?: res.year, res.episode, subCb, cb) }
         ),
