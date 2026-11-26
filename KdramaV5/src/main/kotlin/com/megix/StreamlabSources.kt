@@ -3,6 +3,8 @@ package com.megix
 import com.lagradost.api.Log
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import java.util.Locale
@@ -318,5 +320,134 @@ suspend fun CineStreamExtractors.invokeF5(
                 quality = Qualities.P1080.value
             }
         )
+    }
+}
+
+// ── F3 · framextv.cc (MovieBox MP4/H.264) ──────────────────────────────
+private const val F3_TAG = "StreamlabF3"
+private const val F3_SITE = "https://framextv.cc"
+private val f3Mirrors = arrayOf(
+    "https://api.framextv.pro",
+    "https://api.framextv.tech",
+    "https://api.framextv.xyz",
+    "https://api.framextv.cc",
+)
+private val f3Providers = arrayOf("headhunter", "barbarian_king")
+private val f3Headers = mapOf(
+    "Accept" to "application/json, text/plain, */*",
+    "Origin" to F3_SITE,
+    "Referer" to "$F3_SITE/",
+)
+
+private data class F3Stream(
+    val provider: String,
+    val url: String,
+    val type: String,
+    val quality: String,
+)
+
+/** Memo de 60 s para que re-resolver el mismo episodio no reconsulte 8 veces. */
+private val f3Cache = object {
+    private val ttlMs = 60_000L
+    private val data = HashMap<String, Pair<Long, List<F3Stream>>>()
+    private val lock = Mutex()
+
+    suspend fun get(key: String): List<F3Stream>? = lock.withLock {
+        val hit = data[key] ?: return@withLock null
+        if (System.currentTimeMillis() - hit.first > ttlMs) {
+            data.remove(key)
+            null
+        } else {
+            hit.second
+        }
+    }
+
+    suspend fun set(key: String, value: List<F3Stream>) = lock.withLock {
+        if (data.size >= 64) data.clear()
+        data[key] = System.currentTimeMillis() to value
+    }
+}
+
+private val f3Mutex = Mutex()
+
+private suspend fun f3Request(
+    mirror: String,
+    tmdb: Int,
+    season: Int?,
+    ep: Int,
+    provider: String?,
+): JSONObject? {
+    val path = "/api/stream?type=tv&id=$tmdb&season=${season ?: 1}&episode=$ep" +
+        (provider?.let { "&provider=$it" } ?: "")
+    return try {
+        val response = app.get(mirror + path, headers = f3Headers, timeout = 20_000L)
+        if (response.code == 200) JSONObject(response.text) else null
+    } catch (e: Exception) {
+        Log.d(F3_TAG, "GET falló en ${mirror.removePrefix("https://")}: ${e.message}")
+        null
+    }
+}
+
+private suspend fun f3Collect(tmdb: Int, season: Int?, ep: Int): List<F3Stream> {
+    val key = "$tmdb|${season ?: "movie"}|$ep"
+    f3Cache.get(key)?.let { return it }
+    // single-flight: una sola barrida de mirrors por episodio a la vez
+    return f3Mutex.withLock {
+        f3Cache.get(key)?.let { return@withLock it }
+        val found = mutableListOf<F3Stream>()
+        for (provider in f3Providers) {
+            for (mirror in f3Mirrors) {
+                val data = f3Request(mirror, tmdb, season, ep, provider) ?: continue
+                val sources = data.optJSONArray("sources") ?: continue
+                for (i in 0 until sources.length()) {
+                    val s = sources.optJSONObject(i) ?: continue
+                    val type = s.optString("type").ifBlank { "mp4" }
+                    if (type !in setOf("mp4", "hls", "m3u8")) continue
+                    val url = s.optString("url").takeIf { it.startsWith("http") } ?: continue
+                    found.add(
+                        F3Stream(
+                            provider = provider,
+                            url = url,
+                            type = type,
+                            quality = s.optString("quality"),
+                        )
+                    )
+                    break // primer source utilizable de este proveedor
+                }
+                if (found.any { it.provider == provider }) break // mirror sano, siguiente proveedor
+            }
+        }
+        f3Cache.set(key, found)
+        Log.d(F3_TAG, "tv/$tmdb/${season ?: 1}/$ep -> ${found.map { it.provider }}")
+        found
+    }
+}
+
+/**
+ * F3: `/api/stream?type=tv&id=<tmdb>&season=&episode=&provider=` en 4 mirrors.
+ * La `url` devuelta ya pasa por el proxy del agregador (el CDN directo da 429).
+ * Los proveedores rotan: se emite un link por cada uno que responda, sin
+ * sustituir silenciosamente el pedido (equivalente al 409 de StreamLab).
+ */
+suspend fun CineStreamExtractors.invokeF3(
+    tmdbId: Int?,
+    season: Int? = null,
+    episode: Int? = null,
+    callback: (ExtractorLink) -> Unit,
+) {
+    if (tmdbId == null) return
+    withTimeout(45_000L) {
+        val ep = (episode ?: 1).coerceAtLeast(1)
+        val streams = f3Collect(tmdbId, season, ep)
+        streams.forEach { s ->
+            val qualityLabel = s.quality.ifBlank { if (s.type == "mp4") "MP4" else "HLS" }
+                .lowercase(Locale.ROOT)
+            val label = "F3 - Framex - ${s.provider} - $qualityLabel"
+            val type = if (s.type.equals("mp4", true)) ExtractorLinkType.VIDEO else ExtractorLinkType.M3U8
+            callback.invoke(newExtractorLink(label, label, s.url, type) {
+                headers = mapOf("Referer" to "$F3_SITE/")
+                quality = getIndexQuality(s.quality)
+            })
+        }
     }
 }

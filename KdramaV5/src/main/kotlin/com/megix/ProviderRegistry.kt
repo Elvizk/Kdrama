@@ -313,6 +313,12 @@ object ProviderRegistry {
             }
         ),
         ProviderDef(
+            key = "p_f3", displayName = "F3 · Framex",
+            executeStandard = { res, _, cb ->
+                res.tmdbId?.let { invokeF3(it, res.season, res.episode, cb) }
+            }
+        ),
+        ProviderDef(
             key = "p_skymovies", displayName = "SkyMovies",
             executeStandard = { res, subCb, cb -> if (!res.isAnime) invokeSkymovies(res.title, res.airedYear ?: res.year, res.episode, subCb, cb) }
         ),
