@@ -46,14 +46,16 @@ subprojects {
             minSdk = 21
         }
         compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_1_8
-            targetCompatibility = JavaVersion.VERSION_1_8
+            // cloudstream3:pre-release ya se publica con bytecode JVM 11;
+            // compilar a 1.8 rompe el inlining en builds limpios (CI).
+            sourceCompatibility = JavaVersion.VERSION_11
+            targetCompatibility = JavaVersion.VERSION_11
         }
     }
 
     tasks.withType<KotlinJvmCompile>().configureEach {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_1_8)
+            jvmTarget.set(JvmTarget.JVM_11)
             freeCompilerArgs.addAll(
                 listOf(
                     "-Xno-call-assertions",
