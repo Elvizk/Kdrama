@@ -147,15 +147,19 @@ suspend fun CineStreamExtractors.invokeF6(
         if ((chosen["data-type"] ?: "m3u8").lowercase(Locale.ROOT) != "m3u8") return@withTimeout
         val url = chosen["data-link"]?.takeIf { it.startsWith("http") } ?: return@withTimeout
 
+        val serverLabel = chosen["data-source"]?.takeIf { it.isNotBlank() } ?: "kk"
         Log.d(F6_TAG, "match=${best.score} slug=${best.slug} ep=$ep servers=${servers.size}")
         callback.invoke(
             newExtractorLink(
-                "F6 kvp726",
-                "F6 kvp726 · sv-${chosen["data-server"] ?: "0"}",
+                "Motchill (F6)",
+                "$serverLabel · 1080p",
                 url,
                 INFER_TYPE,
             ) {
                 // kvp726 sirve los segmentos sin Referer (verificado en StreamLab).
+                // El máster es de una sola rendición 1080p (medido en StreamLab);
+                // fijar quality ordena el selector sin peticiones extra.
+                quality = Qualities.P1080.value
             }
         )
     }
