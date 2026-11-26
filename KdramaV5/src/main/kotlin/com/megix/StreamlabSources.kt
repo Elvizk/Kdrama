@@ -152,8 +152,8 @@ suspend fun CineStreamExtractors.invokeF6(
         Log.d(F6_TAG, "match=${best.score} slug=${best.slug} ep=$ep servers=${servers.size}")
         callback.invoke(
             newExtractorLink(
-                "Motchill (F6)",
-                "$serverLabel · 1080p",
+                "F6 - Motchill - $serverLabel - 1080p",
+                "F6 - Motchill - $serverLabel - 1080p",
                 url,
                 INFER_TYPE,
             ) {
@@ -308,8 +308,8 @@ suspend fun CineStreamExtractors.invokeF5(
         Log.d(F5_TAG, "match=${best.score} slug=${best.slug} ep=$ep filecode=$filecode")
         callback.invoke(
             newExtractorLink(
-                "OppaDrama (F5)",
-                "Vidara · Auto (hasta 1080p)",
+                "F5 - OppaDrama - Vidara - Auto (hasta 1080p)",
+                "F5 - OppaDrama - Vidara - Auto (hasta 1080p)",
                 url,
                 INFER_TYPE,
             ) {
