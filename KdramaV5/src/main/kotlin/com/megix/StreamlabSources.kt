@@ -61,6 +61,37 @@ private val f6OriginalRegex = Regex(
 
 private val f6TitleAttrRegex = Regex("title=\"([^\"]*)\"")
 
+/** Búsqueda WP compartida por F6 y F7; null si no hay match fiable. */
+private suspend fun f6BestMatch(
+    title: String?,
+    originalTitle: String?,
+    key: String,
+    originalKey: String,
+): LabMatch? {
+    val searchHtml = f6Get("/?s=" + quote(title ?: return null)) ?: return null
+    val ranked = f6ParseSearch(searchHtml)
+        .map { m ->
+            val t = normKey(m.title)
+            val o = normKey(m.original)
+            m.score = when {
+                t == key -> 100
+                o == key || (originalKey.isNotEmpty() && o == originalKey) -> 95
+                key.isNotEmpty() && (key in t || key in o || t in key || o in key) -> 60
+                else -> 0
+            }
+            m
+        }
+        .filter { it.score > 0 }
+        .sortedByDescending { it.score }
+    if (ranked.isEmpty()) return null
+    val best = ranked.first()
+    // Coincidencia débil y ambigua: no adivinar el título.
+    if (best.score == 60 && ranked.count { it.score == 60 } > 1) return null
+    return best
+}
+
+private val f6SignedMasterRegex = Regex("""signedMasterUrl:\s*"([^"]+)"""")
+
 private val f6ServerTagRegex = Regex(
     """<a[^>]*class="[^"]*streaming-server[^"]*"[^>]*>""",
     RegexOption.IGNORE_CASE,
@@ -113,27 +144,9 @@ suspend fun CineStreamExtractors.invokeF6(
     val originalKey = normKey(originalTitle)
 
     withTimeout(35_000L) {
-        // 1) búsqueda: score 100/95/60 según norm_key ( igual que core.py )
-        val searchHtml = f6Get("/?s=" + quote(title ?: return@withTimeout)) ?: return@withTimeout
-        val ranked = f6ParseSearch(searchHtml)
-            .map { m ->
-                val t = normKey(m.title)
-                val o = normKey(m.original)
-                m.score = when {
-                    t == key -> 100
-                    o == key || (originalKey.isNotEmpty() && o == originalKey) -> 95
-                    key.isNotEmpty() && (key in t || key in o || t in key || o in key) -> 60
-                    else -> 0
-                }
-                m
-            }
-            .filter { it.score > 0 }
-            .sortedByDescending { it.score }
-
-        if (ranked.isEmpty()) return@withTimeout
-        val best = ranked.first()
-        // Coincidencia débil y ambigua: no adivinar el título.
-        if (best.score == 60 && ranked.count { it.score == 60 } > 1) return@withTimeout
+        // 1) búsqueda compartida F6/F7 (score 100/95/60 según norm_key).
+        val best = f6BestMatch(title, originalTitle, key, originalKey)
+            ?: return@withTimeout
 
         // 2) episodio: el sitio enumera tap-NN; CloudStream aporta T/E directo.
         // Las películas (season == null) usan el episodio 1.
@@ -164,6 +177,67 @@ suspend fun CineStreamExtractors.invokeF6(
                 // El máster es de una sola rendición 1080p (medido en StreamLab);
                 // fijar quality ordena el selector sin peticiones extra.
                 quality = Qualities.P1080.value
+            }
+        )
+    }
+}
+
+// ── F7 · streamvsmov (PNG+TS, server sv-2 del mismo sitio que F6) ──────
+private const val F7_TAG = "StreamlabF7"
+private const val F7_PLAYER_REFERER = "https://v1.streamvsmov.com/"
+
+/**
+ * Spike: mismo sitio y búsqueda que F6; el `data-link` de sv-2 es una página
+ * de player de la que se extrae `signedMasterUrl`. Los segmentos son PNG+TS
+ * (IEND + TS pegado): en StreamLab los sirve un proxy con strip; aquí se
+ * emiten directos para que ExoPlayer intente su fallback a TS. Si el
+ * dispositivo no reproduce, F7 se difiere (ver plan).
+ */
+suspend fun CineStreamExtractors.invokeF7(
+    title: String?,
+    originalTitle: String? = null,
+    season: Int? = null,
+    episode: Int? = null,
+    callback: (ExtractorLink) -> Unit,
+) {
+    val key = normKey(title)
+    if (key.isEmpty()) return
+    val originalKey = normKey(originalTitle)
+
+    withTimeout(45_000L) {
+        val best = f6BestMatch(title, originalTitle, key, originalKey)
+            ?: return@withTimeout
+        val ep = if (season == null) 1 else (episode ?: 1).coerceAtLeast(1)
+        val page = f6Get("/phim/${best.slug}/tap-${ep.toString().padStart(2, '0')}-sv-2")
+            ?: return@withTimeout
+        val servers = f6ParseServers(page)
+        val chosen = servers.firstOrNull {
+            it["data-source"] == "vsmov" ||
+                (it["data-link"].orEmpty().contains("streamvsmov.com"))
+        } ?: return@withTimeout
+        val playerPage = chosen["data-link"]?.takeIf { it.startsWith("http") }
+            ?: return@withTimeout
+        val playerHtml = try {
+            // Como en f7.py: Referer del sitio (base canónica de la receta).
+            app.get(playerPage, headers = mapOf("Referer" to "$F6_BASE/")).text
+        } catch (e: Exception) {
+            Log.d(F7_TAG, "player falló: ${e.message}")
+            return@withTimeout
+        }
+        val master = f6SignedMasterRegex.find(playerHtml)?.groupValues?.get(1)
+            ?.takeIf { it.startsWith("http") } ?: return@withTimeout
+
+        Log.d(F7_TAG, "match=${best.score} slug=${best.slug} ep=$ep")
+        callback.invoke(
+            newExtractorLink(
+                "F7 - Motchill - vsmov - Auto",
+                "F7 - Motchill - vsmov - Auto",
+                master,
+                ExtractorLinkType.M3U8,
+            ) {
+                // El máster es media playlist de una sola rendición (medido en
+                // vivo); resolución sin declarar → "Auto" sin quality forzada.
+                headers = mapOf("Referer" to F7_PLAYER_REFERER)
             }
         )
     }

@@ -319,6 +319,13 @@ object ProviderRegistry {
             }
         ),
         ProviderDef(
+            key = "p_f7", displayName = "F7 · vsmov (experimental)",
+            executeStandard = { res, _, cb ->
+                if (res.isAsian && !res.isAnime)
+                    invokeF7(res.title, res.originalTitle, res.season, res.episode, cb)
+            }
+        ),
+        ProviderDef(
             key = "p_f2", displayName = "F2 · NovaHD (HEVC)",
             executeStandard = { res, _, cb ->
                 res.tmdbId?.let { invokeF2(it, res.season, res.episode, cb) }
